@@ -23,3 +23,9 @@ scikit-learn==1.0.2
 scipy==1.7.3
 requests
 icecream
+tenacity
+black
+pylint
+autopep8
+autoflake
+pdbpp
