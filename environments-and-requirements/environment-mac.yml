@@ -55,5 +55,8 @@ dependencies:
       - mlxtend
       - torchinfo
       - invoke
+      - logging_tree
+      - loguru
+      - pydantic[email]
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

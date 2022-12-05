@@ -1,0 +1,74 @@
+---
+# https://github.com/imbrra/logowanie/blob/38a1a38ea9f5b2494e5bc986df651ff9d713fda5/tasks/clean.py
+
+name: pytorch_lab
+debug: true
+run:
+    echo: true
+    pty:  true
+    encoding: "utf_8"
+    warn: true
+    # replace_env: true
+
+# log_level: "CRITICAL"
+# ask_confirmation: true
+# default_confirmation: false # whether to display Y as a default confirmation answer
+
+docker:
+  env:
+    # env vars for the fastapi app
+    POSTGRES_DB: "rwdb"
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: "postgres"
+    POSTGRES_PASSWORD: "postgres"
+    POSTGRES_HOST: 172.16.2.234
+    DB_CONNECTION: "postgresql://postgres:postgres@172.16.2.234:5432/rwdb"
+    SECRET_KEY: "4f5830195970088f3c34f3dd1aeec1ce7b0c9153270b5d50c770cdbdd65f8403"
+    BETTER_EXCEPTIONS: '1'
+    APIURL: "http://localhost:8000/api"
+    DEFAULT_MODULE_NAME: "pytorch_lab.web"
+    VARIABLE_NAME: app
+    MODULE_NAME: "pytorch_lab.web"
+    APP_MODULE: "pytorch_lab.web:app"
+    HOST: 0.0.0.0
+    PORT: '11267'
+    LOG_LEVEL: info
+    DEBUG: 'True'
+    TESTING: 'True'
+
+local:
+  env:
+    # env vars for the fastapi app
+    APIURL: "http://localhost:8000/api"
+    APP_MODULE: "pytorch_lab.web:app"
+    BACKEND_CORS_ORIGINS: '*'
+    BETTER_EXCEPTIONS: '1'
+    DB_CONNECTION: "postgresql://postgres:postgres@172.16.2.234:5432/rwdb"
+    DEBUG: 'True'
+    DEFAULT_MODULE_NAME: "pytorch_lab.web"
+    DOMAIN_MAIN: ultron8.com
+    DOMAIN: localhost
+    FIRST_SUPERUSER_PASSWORD: 'password'
+    FIRST_SUPERUSER: 'admin@ultron8.com'
+    FLOWER_AUTH: 'admin:password'
+    HOST: localhost
+    LOG_LEVEL: INFO
+    MODULE_NAME: "pytorch_lab.web"
+    PORT: '11267'
+    POSTGRES_DB: "rwdb"
+    POSTGRES_HOST: 172.16.2.234
+    POSTGRES_PASSWORD: "postgres"
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: "postgres"
+    PROJECT_NAME: ultron8
+    SECRET_KEY: "4f5830195970088f3c34f3dd1aeec1ce7b0c9153270b5d50c770cdbdd65f8403"
+    SERVER_HOST: http://localhost:11267
+    SERVER_NAME: 'localhost:11267'
+    SMTP_EMAILS_FROM_EMAIL: 'info@ultron8.com'
+    SMTP_PORT: '587'
+    SMTP_TLS: 'True'
+    TESTING: 'True'
+    ULTRON_ENABLE_WEB: 'False'
+    USE_LOCAL_DB_FOR_TEST: 'True'
+    USERS_OPEN_REGISTRATION: 'False'
+    VARIABLE_NAME: app
