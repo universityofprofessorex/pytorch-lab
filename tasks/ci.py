@@ -15,7 +15,7 @@ from .utils import (
 )
 import sys
 
-from ml_logger import get_logger  # noqa: E402
+from .ml_logger import get_logger  # noqa: E402
 
 LOGGER = get_logger(__name__, provider="Invoke CI", level=logging.INFO)
 

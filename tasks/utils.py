@@ -43,7 +43,7 @@ ENV_WHITELIST = [
 ]
 
 # from tasks.core import clean, execute_sql
-from ml_logger import get_logger  # noqa: E402
+from .ml_logger import get_logger  # noqa: E402
 
 # from pytorch_lab.utils.parser import get_domain_from_fqdn
 
