@@ -25,6 +25,7 @@ import glob
 import os
 import pathlib
 import numpy as np
+from fastai.vision.all import *
 # from icecream import ic
 from icecream import install
 install()
@@ -37,6 +38,8 @@ from prompt_toolkit.completion import Completer, WordCompleter, merge_completers
 ROOT_DIR = os.path.dirname(__file__)
 
 DATASET_FOLDER = f"{ROOT_DIR}/demo/datasets/twitter_facebook_tiktok_screenshots"
+TRAIN_DIR = f"{DATASET_FOLDER}/train"
+TEST_DIR = f"{DATASET_FOLDER}/test"
 
 # videos_folder = f"{DATASET_FOLDER}/videos"
 
@@ -46,7 +49,7 @@ MAP_LABELS = {
     2: "twitter"
 }
 
-# LABELS_FOLDER = f"{DATASET_FOLDER}/characters"
+LABELS_FOLDER = TEST_DIR
 
 # Best size of images
 IMG_SIZE = (80, 80)
@@ -88,3 +91,7 @@ def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filena
         npy_filename (str): _description_
     """
     np.save(os.path.join(folder_path,f"{npy_filename}.npy"), np_array_data)
+
+
+test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")
+ic(test_image_paths)
