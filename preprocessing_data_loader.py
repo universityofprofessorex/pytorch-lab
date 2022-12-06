@@ -32,8 +32,11 @@ import cv2
 import matplotlib
 from matplotlib import pyplot
 import matplotlib.pyplot as plt
+import matplotlib.image as mpim
 from matplotlib.widgets import RectangleSelector
+from matplotlib.backend_bases import MouseEvent
 from matplotlib.image import AxesImage
+import matplotlib.patches as patches
 from icecream import install
 install()
 
@@ -47,6 +50,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.shortcuts import PromptSession, input_dialog, prompt
+import rich
 
 # **********************************************************************************************************
 # CONSTANTS - START
@@ -145,21 +149,21 @@ def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filena
 # **********************************************************************************************************
 # Matplotlib event handlers - START
 # **********************************************************************************************************
-def line_select_callback(eclick, erelease):
-    'eclick and erelease are the press and release events'
+def line_select_callback(eclick: MouseEvent, erelease: MouseEvent):
+    # 'eclick and erelease are the press and release events'
     x1, y1 = eclick.xdata, eclick.ydata # start position
     x2, y2 = erelease.xdata, erelease.ydata  # end position
     print("(%3.2f, %3.2f) --> (%3.2f, %3.2f)" % (x1, y1, x2, y2))
     print(" The button you used were: %s %s" % (eclick.button, erelease.button))
     
-    crop_img = settings.img[x1:x2,y1:y2]
+    # crop_img = settings.img[x1:x2,y1:y2]
     
     # SOURCE: https://stackoverflow.com/questions/56313235/dynamic-interaction-between-rectangle-selector-and-a-matplotlib-figure
     # gcf get current figure. 
     plt.gcf().canvas.draw()
 
 
-def toggle_selector(event):
+def toggle_selector(event: MouseEvent):
     print(' Key pressed.')
     if event.key in ['Q', 'q'] and toggle_selector.RS.active:
         print(' RectangleSelector deactivated.')
@@ -167,13 +171,74 @@ def toggle_selector(event):
     if event.key in ['A', 'a'] and not toggle_selector.RS.active:
         print(' RectangleSelector activated.')
         toggle_selector.RS.set_active(True)
+        
+
+# def select_rectangle(image):
+#     """Return location of interactive user click on image.
+#     Parameters
+#     ----------
+#     image : AdornedImage or 2D numpy array.
+#     Returns
+#     -------
+#     center, extents
+#           Rectangle center and extents.
+#           Coordinates are in x, y format & real space units.
+#           (Units are the same as the matplotlib figure axes.)
+#           Rectangle extents are given as: (xmin, xmax, ymin, ymax).
+#     """
+    
+#     img = mpim.imread(f"{fname}")
+#     ic(img)
+    
+#     if interactive:
+#         plt.ion()
+    
+#     # img_axes: AxesImage
+#     img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+#     ic(img_axes)
+#     ic(type(img_axes))
+#     ic(img_axes.axes)
+
+#     toggle_selector.RS = RectangleSelector(img_axes.axes, line_select_callback,
+#                            useblit=True,
+#                            button=[1, 3],  # don't use middle button
+#                            minspanx=5, minspany=5,
+#                            spancoords='pixels',
+#                            interactive=True,
+#                            props=dict(facecolor='black', 
+#                                               edgecolor = 'black',
+#                                               alpha=1.,
+#                                               fill=None))
+                                              
+#     plt.connect('key_press_event', toggle_selector)
+#     plt.show()
+#     rich.inspect(toggle_selector.RS, all=True)
+#     rect_selection_coords = toggle_selector.RS.extents
+#     ic(rect_selection_coords)
+#     x1, x2, y1, y2 = rect_selection_coords
+    
+#     fig, ax = quick_plot(image)
+#     # Here are the docs fir the matplotlib RectangleSelector
+#     # https://matplotlib.org/3.1.0/api/widgets_api.html#matplotlib.widgets.RectangleSelector
+#     toggle_selector.RS = RectangleSelector(ax, _select_rectangle_callback,
+#                                            drawtype='box', useblit=True,
+#                                            # don't use middle button
+#                                            button=[1, 3],
+#                                            minspanx=5, minspany=5,
+#                                            spancoords='pixels',
+#                                            interactive=True)
+#     plt.show()
+#     center = toggle_selector.RS.center  # xy coord, units same as plot axes
+#     extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
+#     return center, extents
+
 
 # **********************************************************************************************************
 # Matplotlib event handlers - END
 # **********************************************************************************************************
 
 # SOURCE: https://github.com/bossjones/practical-python-and-opencv-case-studies/blob/main/practical_python_and_opencv_case_studies/dataset_builder/label_data.py
-def labelized_data_from_images(to_shuffle=False, interactive=True):
+def labelized_data_from_images(to_shuffle=False, interactive=False):
     """
     Interactive labeling data with the possibility to crop the picture shown : full picture,
     left part, right part. Manually labeling data from .avi videos in the same folder. Analzying
@@ -185,46 +250,85 @@ def labelized_data_from_images(to_shuffle=False, interactive=True):
     if to_shuffle:
         shuffle(test_image_paths)
     ic(test_image_paths[::-1])
+    ic(test_image_paths[-1])
     for fname in test_image_paths[::-1]:
         try:
-            # NOTE: IMREAD_UNCHANGED - If set, return the loaded image as is (with alpha channel, otherwise it gets cropped). Ignore EXIF orientation.
-            img = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # cv2.cvtColor() method is used to convert an image from one color space to another.
-            while True:
-                if interactive:
-                    plt.ion()
-                
-                img_axes: AxesImage
-                img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
-                # img_axes.figure.canvas.flush_events()
-                # plt.show()
-                # where = prompt(
-                #     message="Where is the bounding box ? Please type one of the following [No,Right,Left,Full] :",
-                #     completer=constants.yes_no_completer,
-                #     complete_while_typing=True,
-                #     key_bindings=kb,
-                # )
-                
-                # drawtype is 'box' or 'line' or 'none'
-                toggle_selector.RS = RectangleSelector(img_axes, line_select_callback,
-                                       drawtype='box', useblit=True,
-                                       button=[1, 3],  # don't use middle button
-                                       minspanx=5, minspany=5,
-                                       spancoords='pixels',
-                                       interactive=True,
-                                       rectprops=dict(facecolor='black', 
-                                                          edgecolor = 'black',
-                                                          alpha=1.,
-                                                          fill=None))
-                                                          
-                plt.connect('key_press_event', toggle_selector)
-                plt.show()
-                
+            img = mpim.imread(f"{fname}")
+            ic(img)
+            
+            if interactive:
+                plt.ion()
+            
+            # img_axes: AxesImage
+            img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+            ic(img_axes)
+            ic(type(img_axes))
+            ic(img_axes.axes)
+        
+            toggle_selector.RS = RectangleSelector(img_axes.axes, line_select_callback,
+                                   useblit=True,
+                                   button=[1, 3],  # don't use middle button
+                                   minspanx=5, minspany=5,
+                                   spancoords='pixels',
+                                   interactive=True,
+                                   props=dict(facecolor='black', 
+                                                      edgecolor = 'black',
+                                                      alpha=1.,
+                                                      fill=None))
+                                                      
+            plt.connect('key_press_event', toggle_selector)
+            plt.show()
+            rich.inspect(toggle_selector.RS, all=True)
+            rect_selection_coords = toggle_selector.RS.extents
+            ic(rect_selection_coords)
+            x1, x2, y1, y2 = rect_selection_coords
+            
         except Exception as e:
             if e == KeyboardInterrupt:
                 return
             else:
                 continue
+
+        # try:
+        #     # NOTE: IMREAD_UNCHANGED - If set, return the loaded image as is (with alpha channel, otherwise it gets cropped). Ignore EXIF orientation.
+        #     img = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
+        #     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # cv2.cvtColor() method is used to convert an image from one color space to another.
+        #     while True:
+        #         if interactive:
+        #             plt.ion()
+                
+        #         img_axes: AxesImage
+        #         img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+        #         ic(img_axes)
+        #         # img_axes.figure.canvas.flush_events()
+        #         # plt.show()
+        #         # where = prompt(
+        #         #     message="Where is the bounding box ? Please type one of the following [No,Right,Left,Full] :",
+        #         #     completer=constants.yes_no_completer,
+        #         #     complete_while_typing=True,
+        #         #     key_bindings=kb,
+        #         # )
+                
+        #         # drawtype is 'box' or 'line' or 'none'
+        #         toggle_selector.RS = RectangleSelector(img_axes, line_select_callback,
+        #                                drawtype='box', useblit=True,
+        #                                button=[1, 3],  # don't use middle button
+        #                                minspanx=5, minspany=5,
+        #                                spancoords='pixels',
+        #                                interactive=True,
+        #                                rectprops=dict(facecolor='black', 
+        #                                                   edgecolor = 'black',
+        #                                                   alpha=1.,
+        #                                                   fill=None))
+                                                          
+        #         plt.connect('key_press_event', toggle_selector)
+        #         plt.show()
+                
+        # except Exception as e:
+        #     if e == KeyboardInterrupt:
+        #         return
+        #     else:
+        #         continue
                 
     # plt.imshow(img)
     #         m, s = np.random.randint(0, 3), np.random.randint(0, 59)
