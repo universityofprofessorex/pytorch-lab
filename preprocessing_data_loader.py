@@ -26,11 +26,27 @@ import os
 import pathlib
 import numpy as np
 from fastai.vision.all import *
-# from icecream import ic
+from random import shuffle
+import time
+import cv2
+import matplotlib
+from matplotlib import pyplot
+import matplotlib.pyplot as plt
+from matplotlib.widgets import RectangleSelector
+from matplotlib.image import AxesImage
 from icecream import install
 install()
 
 from prompt_toolkit.completion import Completer, WordCompleter, merge_completers
+# from prompt_toolkit.eventloop.defaults import create_event_loop
+from prompt_toolkit.eventloop.inputhook import (
+    new_eventloop_with_inputhook,
+    set_eventloop_with_inputhook,
+)
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.shortcuts import PromptSession, input_dialog, prompt
 
 # **********************************************************************************************************
 # CONSTANTS - START
@@ -80,6 +96,40 @@ YES_NO_COMPLETER = WordCompleter(
 # CONSTANTS - END
 # **********************************************************************************************************
 
+KEYBINDINGS = KeyBindings()
+
+
+@KEYBINDINGS.add("c-space")
+def _(event):
+    """
+    Start auto completion. If the menu is showing already, select the next
+    completion.
+    """
+    b = event.app.current_buffer
+    if b.complete_state:
+        b.complete_next()
+    else:
+        b.start_completion(select_first=False)
+
+
+
+# SOURCE: https://github.com/GamestonkTerminal/GamestonkTerminal/blob/e7e49538b03e6271e1709c5229f99b5c6f4b494d/gamestonk_terminal/menu.py
+def inputhook(inputhook_contex):
+    while not inputhook_contex.input_is_ready():
+        # print("not inputhook_contex.input_is_ready")
+        try:
+            # Run the GUI event loop for interval seconds.
+            # If there is an active figure, it will be updated and displayed before the pause, and the GUI event loop (if any) will run during the pause.
+            # This can be used for crude animation. For more complex animation use matplotlib.animation.
+            # If there is no active figure, sleep for interval seconds instead.
+            pyplot.pause(0.5)
+            # img_axes.figure.canvas.flush_events()
+        # pylint: disable=unused-variable
+        except Exception:  # noqa: F841
+            continue
+    return False
+
+
 def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filename: str):
     """Take ndarry and save it to disk as a .npy file
     
@@ -92,6 +142,253 @@ def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filena
     """
     np.save(os.path.join(folder_path,f"{npy_filename}.npy"), np_array_data)
 
+# **********************************************************************************************************
+# Matplotlib event handlers - START
+# **********************************************************************************************************
+def line_select_callback(eclick, erelease):
+    'eclick and erelease are the press and release events'
+    x1, y1 = eclick.xdata, eclick.ydata # start position
+    x2, y2 = erelease.xdata, erelease.ydata  # end position
+    print("(%3.2f, %3.2f) --> (%3.2f, %3.2f)" % (x1, y1, x2, y2))
+    print(" The button you used were: %s %s" % (eclick.button, erelease.button))
+    
+    crop_img = settings.img[x1:x2,y1:y2]
+    
+    # SOURCE: https://stackoverflow.com/questions/56313235/dynamic-interaction-between-rectangle-selector-and-a-matplotlib-figure
+    # gcf get current figure. 
+    plt.gcf().canvas.draw()
 
-test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")
-ic(test_image_paths)
+
+def toggle_selector(event):
+    print(' Key pressed.')
+    if event.key in ['Q', 'q'] and toggle_selector.RS.active:
+        print(' RectangleSelector deactivated.')
+        toggle_selector.RS.set_active(False)
+    if event.key in ['A', 'a'] and not toggle_selector.RS.active:
+        print(' RectangleSelector activated.')
+        toggle_selector.RS.set_active(True)
+
+# **********************************************************************************************************
+# Matplotlib event handlers - END
+# **********************************************************************************************************
+
+# SOURCE: https://github.com/bossjones/practical-python-and-opencv-case-studies/blob/main/practical_python_and_opencv_case_studies/dataset_builder/label_data.py
+def labelized_data_from_images(to_shuffle=False, interactive=True):
+    """
+    Interactive labeling data with the possibility to crop the picture shown : full picture,
+    left part, right part. Manually labeling data from .avi videos in the same folder. Analzying
+    frame (randomly chosen) of each video and then save the picture into the right character
+    folder.
+    :param interactive: boolean to label from terminal
+    """
+    test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")
+    if to_shuffle:
+        shuffle(test_image_paths)
+    ic(test_image_paths[::-1])
+    for fname in test_image_paths[::-1]:
+        try:
+            # NOTE: IMREAD_UNCHANGED - If set, return the loaded image as is (with alpha channel, otherwise it gets cropped). Ignore EXIF orientation.
+            img = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # cv2.cvtColor() method is used to convert an image from one color space to another.
+            while True:
+                if interactive:
+                    plt.ion()
+                
+                img_axes: AxesImage
+                img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+                # img_axes.figure.canvas.flush_events()
+                # plt.show()
+                # where = prompt(
+                #     message="Where is the bounding box ? Please type one of the following [No,Right,Left,Full] :",
+                #     completer=constants.yes_no_completer,
+                #     complete_while_typing=True,
+                #     key_bindings=kb,
+                # )
+                
+                # drawtype is 'box' or 'line' or 'none'
+                toggle_selector.RS = RectangleSelector(img_axes, line_select_callback,
+                                       drawtype='box', useblit=True,
+                                       button=[1, 3],  # don't use middle button
+                                       minspanx=5, minspany=5,
+                                       spancoords='pixels',
+                                       interactive=True,
+                                       rectprops=dict(facecolor='black', 
+                                                          edgecolor = 'black',
+                                                          alpha=1.,
+                                                          fill=None))
+                                                          
+                plt.connect('key_press_event', toggle_selector)
+                plt.show()
+                
+        except Exception as e:
+            if e == KeyboardInterrupt:
+                return
+            else:
+                continue
+                
+    # plt.imshow(img)
+    #         m, s = np.random.randint(0, 3), np.random.randint(0, 59)
+    #         print(f"fname = {fname}")
+    #         cap = cv2.VideoCapture(fname)  # video_name is the video being called
+    #         fps = cap.get(cv2.CAP_PROP_FPS)
+    #         cap.set(1, fps * (m * 60 + s))  # Where frame_no is the frame you want
+    #         i = 0
+    #         while True:
+    #             i += 1
+    #             ret, frame = cap.read()  # Read the frame
+    #             # Resizing HD pictures (we don't need HD)
+    #             if np.min(frame.shape[:2]) > 900:
+    #                 frame = cv2.resize(
+    #                     frame, (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
+    #                 )
+    #             if i % np.random.randint(100, 250) == 0:
+    #                 if interactive:
+    #                     plt.ion()
+    #                 img_axes = plt.imshow(frame)
+    #                 img_axes.figure.canvas.flush_events()
+    #                 plt.show()
+    #                 where = prompt(
+    #                     message="Where is the character ? Please type one of the following [No,Right,Left,Full] :",
+    #                     completer=constants.yes_no_completer,
+    #                     complete_while_typing=True,
+    #                     key_bindings=kb,
+    #                 )
+
+    #                 if where.lower() == "stop":
+    #                     raise
+
+    #                 elif where.lower() in ["left", "l"]:
+    #                     plt.close()
+    #                     img_axes = plt.imshow(frame[:, : int(frame.shape[1] / 2)])
+    #                     img_axes.figure.canvas.flush_events()
+    #                     plt.show()
+
+    #                     name = prompt(
+    #                         message="Name ? Please type one of the following [Name or No] :",
+    #                         completer=constants.name_completer,
+    #                         complete_while_typing=True,
+    #                         key_bindings=kb,
+    #                         # complete_in_thread=True
+    #                     )
+    #                     plt.close()
+    #                     if name.lower() not in ["no", "n", ""]:
+    #                         name_char = get_character_name(name)
+    #                         name_new_pic = "pic_{:04d}.jpg".format(
+    #                             len(
+    #                                 glob.glob(
+    #                                     f"{constants.characters_folder}/%s/*"
+    #                                     % name_char
+    #                                 )
+    #                             )
+    #                         )
+    #                         title = f"{constants.characters_folder}/%s/%s" % (
+    #                             name_char,
+    #                             name_new_pic,
+    #                         )
+    #                         cv2.imwrite(title, frame[:, : int(frame.shape[1] / 2)])
+    #                         print("Saved at %s" % title)
+    #                         print(
+    #                             "%s : %d photos labeled"
+    #                             % (
+    #                                 name_char,
+    #                                 len(
+    #                                     glob.glob(
+    #                                         f"{constants.characters_folder}/%s/*"
+    #                                         % name_char
+    #                                     )
+    #                                 ),
+    #                             )
+    #                         )
+
+    #                 elif where.lower() in ["right", "r"]:
+    #                     plt.close()
+    #                     img_axes = plt.imshow(frame[:, int(frame.shape[1] / 2) :])
+    #                     img_axes.figure.canvas.flush_events()
+    #                     plt.show()
+    #                     name = prompt(
+    #                         message="Name ? Please type one of the following [Name or No] :",
+    #                         completer=constants.name_completer,
+    #                         complete_while_typing=True,
+    #                         key_bindings=kb,
+    #                         # complete_in_thread=True
+    #                     )
+    #                     plt.close()
+    #                     if name.lower() not in ["no", "n", ""]:
+    #                         name_char = get_character_name(name)
+    #                         name_new_pic = "pic_{:04d}.jpg".format(
+    #                             len(
+    #                                 glob.glob(
+    #                                     f"{constants.characters_folder}/%s/*"
+    #                                     % name_char
+    #                                 )
+    #                             )
+    #                         )
+    #                         title = f"{constants.characters_folder}/%s/%s" % (
+    #                             name_char,
+    #                             name_new_pic,
+    #                         )
+    #                         cv2.imwrite(title, frame[:, int(frame.shape[1] / 2) :])
+    #                         print("Saved at %s" % title)
+    #                         print(
+    #                             "%s : %d photos labeled"
+    #                             % (
+    #                                 name_char,
+    #                                 len(
+    #                                     glob.glob(
+    #                                         f"{constants.characters_folder}/%s/*"
+    #                                         % name_char
+    #                                     )
+    #                                 ),
+    #                             )
+    #                         )
+
+    #                 elif where.lower() in ["full", "f"]:
+
+    #                     name = prompt(
+    #                         message="Name ? Please type one of the following [Name or No] :",
+    #                         completer=constants.name_completer,
+    #                         complete_while_typing=True,
+    #                         key_bindings=kb,
+    #                         # complete_in_thread=True
+    #                     )
+    #                     plt.close()
+    #                     if name.lower() not in ["no", "n", ""]:
+    #                         name_char = get_character_name(name)
+    #                         name_new_pic = "pic_{:04d}.jpg".format(
+    #                             len(
+    #                                 glob.glob(
+    #                                     f"{constants.characters_folder}/%s/*"
+    #                                     % name_char
+    #                                 )
+    #                             )
+    #                         )
+    #                         title = f"{constants.characters_folder}/%s/%s" % (
+    #                             name_char,
+    #                             name_new_pic,
+    #                         )
+    #                         cv2.imwrite(title, frame)
+    #                         print("Saved at %s" % title)
+    #                         print(
+    #                             "%s : %d photos labeled"
+    #                             % (
+    #                                 name_char,
+    #                                 len(
+    #                                     glob.glob(
+    #                                         f"{constants.characters_folder}/%s/*"
+    #                                         % name_char
+    #                                     )
+    #                                 ),
+    #                             )
+    #                         )
+    #     except Exception as e:
+    #         if e == KeyboardInterrupt:
+    #             return
+    #         else:
+    #             continue
+
+
+
+# test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")
+# ic(test_image_paths)
+
+labelized_data_from_images()

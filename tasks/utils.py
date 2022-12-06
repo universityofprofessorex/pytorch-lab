@@ -70,17 +70,6 @@ def is_venv():
     )
 
 
-def get_version():
-    """Get current version of pytorch_lab
-
-    Returns:
-        Str -- Returns current version of application
-    """
-    from pytorch_lab import __version__
-
-    return __version__
-
-
 def get_compose_env(c, loc="docker", name=None):
     """
     The variables are looked up in this priority: invoke.yaml dev.env variables, environment variables,
@@ -89,7 +78,7 @@ def get_compose_env(c, loc="docker", name=None):
     Vault variables
     """
     env = copy.copy(c[loc]["env"])
-    env["VERSION"] = get_version()
+    env["VERSION"] = '0.0.1'
     env["NAME"] = c["name"]
 
     # environment variables have priority over what's inside invoke.yaml
