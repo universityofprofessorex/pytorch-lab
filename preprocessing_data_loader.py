@@ -297,6 +297,9 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
         try:
             while CLOSE_FLAG == 0:
                 img = mpim.imread(f"{fname}")
+                height, width, _ = img.shape
+                ic(width, height)
+                # rich.inspect(img, all=True)
                 # ic(img)
                 CURRENT_FILEPATH = f"{fname}"
                 
