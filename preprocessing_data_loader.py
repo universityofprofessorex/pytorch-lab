@@ -2,6 +2,8 @@
 
 # NOTE: https://github.com/alexattia/SimpsonRecognition/tree/fa65cc3124ed606e0ad6456ae49c734a2685db52
 # NOTE: https://github.com/ngduyanhece/object_localization/blob/master/label_pointer.py
+# NOTE: https://github.com/thtang/CheXNet-with-localization/blob/master/preprocessing.py
+# 
 
 Files description
 label_data.py : tools functions for notebooks + script to name characters from frames from .avi videos
@@ -16,57 +18,54 @@ HOW TO RUN:
 ./preprocessing_data_loader.py [path of images folder] [path to data_entry] [path to bbox_list_path] [path to train_txt] [path to valid_txt] [path of preprocessed output (folder)]
 """
 
-
-
 import glob
 import os
 import pathlib
 
 from prompt_toolkit.completion import Completer, WordCompleter, merge_completers
 
-# mkdir -p ~/dev/bossjones/practical-python-and-opencv-case-studies/deeplearning_data/{autogenerate,characters,models}/{captain_kobayashi,eiko_yamano,izana_shinatose,kouichi_tsuruuchi,lalah_hiyama,mozuku_kunato,nagate_tanikaze,norio_kunato,ochiai,samari_ittan,shizuka_hoshijiro,yuhata_midorikawa}/{edited,non_filtered,pic_video}
-
+# **********************************************************************************************************
+# CONSTANTS - START
+# **********************************************************************************************************
 ROOT_DIR = os.path.dirname(__file__)
 
-movies_path = "/Users/malcolm/Downloads/farming/anime/knights_of_sidonia"
-dataset_folder = "/Users/malcolm/dev/bossjones/practical-python-and-opencv-case-studies/deeplearning_data"
+DATASET_FOLDER = f"{ROOT_DIR}/demo/datasets/twitter_facebook_tiktok_screenshots"
 
-videos_folder = f"{dataset_folder}/videos"
+# videos_folder = f"{DATASET_FOLDER}/videos"
 
-map_characters = {
+MAP_LABELS = {
     0: "twitter",
     1: "tiktok",
     2: "facebook"
 }
 
-characters_folder = f"{dataset_folder}/characters"
+# LABELS_FOLDER = f"{DATASET_FOLDER}/characters"
 
 # Best size of images
 IMG_SIZE = (80, 80)
 # Since we don't require color in our images, set this to 1, grayscale
-channels = 1
+CHANNELS = 1
 
-# pic_size = 64
-pic_size = 80
-batch_size = 32
-# epochs = 200
-epochs = 200
-num_classes = len(map_characters)
-pictures_per_class = 1000
-test_size = 0.15
+PIC_SIZE = 80
+BATCH_SIZE = 32
+EPOCHS = 200
+NUM_CLASSES = len(MAP_LABELS)
+PICTURES_PER_CLASS = 1000
+TEST_SIZE = 0.15
 
-path_to_best_model = f"{ROOT_DIR}/models/weights.best_6conv2.hdf5"
-
-chars_list_from_folder = [
-    pathlib.Path(f"{k}").stem for k in glob.glob(f"{characters_folder}/*")
+LABEL_LIST_FROM_FOLDER = [
+    pathlib.Path(f"{k}").stem for k in glob.glob(f"{LABELS_FOLDER}/*")
 ]
-chars_list_from_folder.append("no")
+LABEL_LIST_FROM_FOLDER.append("no")
 
-name_completer = WordCompleter(
-    chars_list_from_folder,
+NAME_COMPLETER = WordCompleter(
+    LABEL_LIST_FROM_FOLDER,
     ignore_case=True,
 )
 
-yes_no_completer = WordCompleter(
+YES_NO_COMPLETER = WordCompleter(
     ["No", "Right", "Left", "Full", "Stop"], ignore_case=True
 )
+# **********************************************************************************************************
+# CONSTANTS - END
+# **********************************************************************************************************
