@@ -359,6 +359,44 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 line = f"{fname}, {width}, {height}, {class_num}, {x1}, {y1}, {x2}, {y2}"
                 ic(line)
                 
+                ############################################################
+                # ic| test_image_paths[-1]: Path('/Users/malcolm/dev/bossjones/pytorch-lab/demo/datasets/twitter_facebook_tiktok_screenshots/test/tiktok/IMG_7122.PNG')
+                # ic| width: 1179, height: 2556
+                # ic| img_axes: <matplotlib.image.AxesImage object at 0x289cbe740>
+                # ic| type(img_axes): <class 'matplotlib.image.AxesImage'>
+                # ic| img_axes.axes: <AxesSubplot: >
+                # (4.63, 503.65) --> (1159.54, 1734.62)
+                #  The button you used were: MouseButton.LEFT MouseButton.LEFT
+                #  Key pressed.
+                #  Enter pressed.
+                # ic| center: (582.0844155844158, 1119.1331168831168)
+                # ic| extents: (4.633116883117054, 1159.5357142857144, 503.6461038961038, 1734.6201298701299)
+                # ic| x1: 4.633116883117054
+                #     x2: 1159.5357142857144
+                #     y1: 503.6461038961038
+                #     y2: 1734.6201298701299
+                # ic| line: ('/Users/malcolm/dev/bossjones/pytorch-lab/demo/datasets/twitter_facebook_tiktok_screenshots/test/tiktok/IMG_7122.PNG, '
+                #            '1179, 2556, 1, 4.633116883117054, 503.6461038961038, 1159.5357142857144, '
+                #            '1734.6201298701299')
+                # ic| width: 1179, height: 2556
+                # ic| img_axes: <matplotlib.image.AxesImage object at 0x2997df970>
+                # ic| type(img_axes): <class 'matplotlib.image.AxesImage'>
+                # ic| img_axes.axes: <AxesSubplot: >
+                #  Key pressed.
+                #  Key pressed.
+                #  Escape pressed.
+                # Closed Figure!
+                # ic| center: (564.7954545454547, 2177.2175324675327)
+                # ic| extents: (564.7954545454547, 564.7954545454547, 2177.2175324675327, 2177.2175324675327)
+                # ic| x1: 564.7954545454547
+                #     x2: 564.7954545454547
+                #     y1: 2177.2175324675327
+                #     y2: 2177.2175324675327
+                # ic| line: ('/Users/malcolm/dev/bossjones/pytorch-lab/demo/datasets/twitter_facebook_tiktok_screenshots/test/tiktok/IMG_7122.PNG, '
+                #            '1179, 2556, 1, 564.7954545454547, 2177.2175324675327, 564.7954545454547, '
+                #            '2177.2175324675327')
+                ############################################################
+
                 if CLOSE_FLAG == 1:
                     break
             
