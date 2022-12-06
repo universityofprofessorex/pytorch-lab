@@ -55,6 +55,8 @@ import rich
 # **********************************************************************************************************
 # CONSTANTS - START
 # **********************************************************************************************************
+CLOSE_FLAG = 0
+TO_CROP = []
 ROOT_DIR = os.path.dirname(__file__)
 
 DATASET_FOLDER = f"{ROOT_DIR}/demo/datasets/twitter_facebook_tiktok_screenshots"
@@ -171,9 +173,37 @@ def toggle_selector(event: MouseEvent):
     if event.key in ['A', 'a'] and not toggle_selector.RS.active:
         print(' RectangleSelector activated.')
         toggle_selector.RS.set_active(True)
+    if event.key == 'enter' and toggle_selector.RS.active:
+        print(' Enter pressed.')
+        # cnt.append(1)
+        center = toggle_selector.RS.center  # xy coord, units same as plot axes
+        extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
+        # rich.inspect(toggle_selector.RS, all=True)
+        ic(center)
+        ic(extents)
+        # rect_selection_coords = toggle_selector.RS.extents
+        # ic(rect_selection_coords)
+        x1, x2, y1, y2 = extents
         
+        data = {
+            "center": center,
+            "extents": extents
+        }
+        
+        TO_CROP[f"{fname}"] = data
+        ic(TO_CROP)
+        plt.close()
+    if event.key == "escape" and toggle_selector.RS.active:
+        print(' Escape pressed.')
+        plt.close()
+        
+# to handle close event.
+def handle_close(evt):
+    global CLOSE_FLAG # should be global variable to change the outside CLOSE_FLAG.
+    CLOSE_FLAG = 1
+    print('Closed Figure!')
 
-# def select_rectangle(image):
+# def select_rectangle(fname: str):
 #     """Return location of interactive user click on image.
 #     Parameters
 #     ----------
@@ -209,10 +239,10 @@ def toggle_selector(event: MouseEvent):
 #                                               edgecolor = 'black',
 #                                               alpha=1.,
 #                                               fill=None))
-                                              
+
 #     plt.connect('key_press_event', toggle_selector)
 #     plt.show()
-#     rich.inspect(toggle_selector.RS, all=True)
+#     # rich.inspect(toggle_selector.RS, all=True)
 #     rect_selection_coords = toggle_selector.RS.extents
 #     ic(rect_selection_coords)
 #     x1, x2, y1, y2 = rect_selection_coords
@@ -253,35 +283,37 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
     ic(test_image_paths[-1])
     for fname in test_image_paths[::-1]:
         try:
-            img = mpim.imread(f"{fname}")
-            ic(img)
+            while CLOSE_FLAG == 0:
+                img = mpim.imread(f"{fname}")
+                # ic(img)
+                
+                if interactive:
+                    plt.ion()
+                
+                # img_axes: AxesImage
+                img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+                ic(img_axes)
+                ic(type(img_axes))
+                ic(img_axes.axes)
             
-            if interactive:
-                plt.ion()
+                toggle_selector.RS = RectangleSelector(img_axes.axes, line_select_callback,
+                                       useblit=True,
+                                       button=[1, 3],  # don't use middle button
+                                       minspanx=5, minspany=5,
+                                       spancoords='pixels',
+                                       interactive=True,
+                                       props=dict(facecolor='black', 
+                                                          edgecolor = 'black',
+                                                          alpha=1.,
+                                                          fill=None))
+                                                          
+                plt.connect('key_press_event', toggle_selector)
+                plt.connect('close_event', handle_close)
+                plt.show()
+                
+                if CLOSE_FLAG == 1:
+                    break
             
-            # img_axes: AxesImage
-            img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
-            ic(img_axes)
-            ic(type(img_axes))
-            ic(img_axes.axes)
-        
-            toggle_selector.RS = RectangleSelector(img_axes.axes, line_select_callback,
-                                   useblit=True,
-                                   button=[1, 3],  # don't use middle button
-                                   minspanx=5, minspany=5,
-                                   spancoords='pixels',
-                                   interactive=True,
-                                   props=dict(facecolor='black', 
-                                                      edgecolor = 'black',
-                                                      alpha=1.,
-                                                      fill=None))
-                                                      
-            plt.connect('key_press_event', toggle_selector)
-            plt.show()
-            rich.inspect(toggle_selector.RS, all=True)
-            rect_selection_coords = toggle_selector.RS.extents
-            ic(rect_selection_coords)
-            x1, x2, y1, y2 = rect_selection_coords
             
         except Exception as e:
             if e == KeyboardInterrupt:
@@ -496,3 +528,13 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
 # ic(test_image_paths)
 
 labelized_data_from_images()
+
+# # https://gist.github.com/GenevieveBuckley/aa46f72cb64637ae2a9d8c7d88aac588
+# def main():
+#     import fibsem
+#     rect_coords = select_rectangle(fibsem.data.embryo_adorned())
+#     print(rect_coords)
+
+
+# if __name__ == '__main__':
+#     main()
