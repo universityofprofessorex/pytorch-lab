@@ -72,6 +72,12 @@ MAP_LABELS = {
     2: "twitter"
 }
 
+LABEL_TO_NUM = {
+    "facebook": 0,
+    "tiktok": 1,
+    "twitter": 2
+}
+
 LABELS_FOLDER = TEST_DIR
 
 # Best size of images
@@ -299,8 +305,6 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 img = mpim.imread(f"{fname}")
                 height, width, _ = img.shape
                 ic(width, height)
-                # rich.inspect(img, all=True)
-                # ic(img)
                 CURRENT_FILEPATH = f"{fname}"
                 
                 if interactive:
@@ -339,14 +343,21 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 
                 ic(x1, x2, y1, y2)
                 
-                data = {
-                    "center": center,
-                    "extents": extents
-                }
+                # data = {
+                #     "center": center,
+                #     "extents": extents
+                # }
                 
-                TO_CROP[f"{fname}"] = data
-                ic(TO_CROP)
-                # plt.close()
+                # TO_CROP[f"{fname}"] = data
+                # ic(TO_CROP)
+                # # plt.close()
+                
+                # eg. ('/', 'Users', 'malcolm', 'dev', 'bossjones', 'pytorch-lab', 'demo', 'datasets', 'twitter_facebook_tiktok_screenshots', 'test', 'tiktok', 'IMG_7122.PNG') -> tiktok
+                class_num = LABEL_TO_NUM[fname.parts[-2]]
+                
+                # column_name = ['filename', 'width', 'height', 'class_num', 'xmin', 'ymin', 'xmax', 'ymax']
+                line = f"{fname}, {width}, {height}, {class_num}, {x1}, {y1}, {x2}, {y2}"
+                ic(line)
                 
                 if CLOSE_FLAG == 1:
                     break
