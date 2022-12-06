@@ -175,24 +175,25 @@ def toggle_selector(event: MouseEvent):
         toggle_selector.RS.set_active(True)
     if event.key == 'enter' and toggle_selector.RS.active:
         print(' Enter pressed.')
-        # cnt.append(1)
-        center = toggle_selector.RS.center  # xy coord, units same as plot axes
-        extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
-        # rich.inspect(toggle_selector.RS, all=True)
-        ic(center)
-        ic(extents)
-        # rect_selection_coords = toggle_selector.RS.extents
-        # ic(rect_selection_coords)
-        x1, x2, y1, y2 = extents
+        return
+        # # cnt.append(1)
+        # center = toggle_selector.RS.center  # xy coord, units same as plot axes
+        # extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
+        # # rich.inspect(toggle_selector.RS, all=True)
+        # ic(center)
+        # ic(extents)
+        # # rect_selection_coords = toggle_selector.RS.extents
+        # # ic(rect_selection_coords)
+        # x1, x2, y1, y2 = extents
         
-        data = {
-            "center": center,
-            "extents": extents
-        }
+        # data = {
+        #     "center": center,
+        #     "extents": extents
+        # }
         
-        TO_CROP[f"{fname}"] = data
-        ic(TO_CROP)
-        plt.close()
+        # TO_CROP[f"{fname}"] = data
+        # ic(TO_CROP)
+        # plt.close()
     if event.key == "escape" and toggle_selector.RS.active:
         print(' Escape pressed.')
         plt.close()
@@ -310,6 +311,25 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 plt.connect('key_press_event', toggle_selector)
                 plt.connect('close_event', handle_close)
                 plt.show()
+                
+                # cnt.append(1)
+                center = toggle_selector.RS.center  # xy coord, units same as plot axes
+                extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
+                # rich.inspect(toggle_selector.RS, all=True)
+                ic(center)
+                ic(extents)
+                # rect_selection_coords = toggle_selector.RS.extents
+                # ic(rect_selection_coords)
+                x1, x2, y1, y2 = extents
+                
+                data = {
+                    "center": center,
+                    "extents": extents
+                }
+                
+                TO_CROP[f"{fname}"] = data
+                ic(TO_CROP)
+                plt.close()
                 
                 if CLOSE_FLAG == 1:
                     break
