@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
 
 # NOTE: https://github.com/alexattia/SimpsonRecognition/tree/fa65cc3124ed606e0ad6456ae49c734a2685db52
@@ -21,6 +24,10 @@ HOW TO RUN:
 import glob
 import os
 import pathlib
+import numpy as np
+# from icecream import ic
+from icecream import install
+install()
 
 from prompt_toolkit.completion import Completer, WordCompleter, merge_completers
 
@@ -34,9 +41,9 @@ DATASET_FOLDER = f"{ROOT_DIR}/demo/datasets/twitter_facebook_tiktok_screenshots"
 # videos_folder = f"{DATASET_FOLDER}/videos"
 
 MAP_LABELS = {
-    0: "twitter",
+    0: "facebook",
     1: "tiktok",
-    2: "facebook"
+    2: "twitter"
 }
 
 # LABELS_FOLDER = f"{DATASET_FOLDER}/characters"
@@ -69,3 +76,15 @@ YES_NO_COMPLETER = WordCompleter(
 # **********************************************************************************************************
 # CONSTANTS - END
 # **********************************************************************************************************
+
+def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filename: str):
+    """Take ndarry and save it to disk as a .npy file
+    
+    SEE: https://towardsdatascience.com/what-is-npy-files-and-why-you-should-use-them-603373c78883
+
+    Args:
+        np_array_data (np.ndarray): _description_
+        folder_path (str): _description_
+        npy_filename (str): _description_
+    """
+    np.save(os.path.join(folder_path,f"{npy_filename}.npy"), np_array_data)

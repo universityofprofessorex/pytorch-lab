@@ -3,6 +3,7 @@ channels:
   - pytorch
   - conda-forge
   - defaults
+  - fastchan
 dependencies:
   - python=3.10
   - pip>=22.2
@@ -13,6 +14,7 @@ dependencies:
   - torch-fidelity=0.3
   - torchtext=0.13
   - torchvision=0.13
+  - fastai=2.7.10
 
   # I suggest to keep the other deps sorted for convenience.
   # To determine what the latest versions should be, run:
