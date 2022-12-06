@@ -56,6 +56,7 @@ import rich
 # CONSTANTS - START
 # **********************************************************************************************************
 CLOSE_FLAG = 0
+CURRENT_FILEPATH = ""
 TO_CROP = []
 ROOT_DIR = os.path.dirname(__file__)
 
@@ -98,6 +99,11 @@ NAME_COMPLETER = WordCompleter(
 YES_NO_COMPLETER = WordCompleter(
     ["No", "Right", "Left", "Full", "Stop"], ignore_case=True
 )
+
+# NOTE: Check this out, it's an example of only annotating stuff that is missing from the text file
+# SOURCE: https://github.com/ngduyanhece/object_localization/blob/master/label_pointer.py
+# with open('./annotation.txt') as f:
+#     already_labeled = [k.strip().split(',')[0] for k in f.readlines()]
 # **********************************************************************************************************
 # CONSTANTS - END
 # **********************************************************************************************************
@@ -175,7 +181,8 @@ def toggle_selector(event: MouseEvent):
         toggle_selector.RS.set_active(True)
     if event.key == 'enter' and toggle_selector.RS.active:
         print(' Enter pressed.')
-        return
+        plt.close()
+        # return
         # # cnt.append(1)
         # center = toggle_selector.RS.center  # xy coord, units same as plot axes
         # extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
@@ -196,6 +203,9 @@ def toggle_selector(event: MouseEvent):
         # plt.close()
     if event.key == "escape" and toggle_selector.RS.active:
         print(' Escape pressed.')
+        global CLOSE_FLAG # should be global variable to change the outside CLOSE_FLAG.
+        CLOSE_FLAG = 1
+        print('Closed Figure!')
         plt.close()
         
 # to handle close event.
@@ -277,6 +287,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
     folder.
     :param interactive: boolean to label from terminal
     """
+    global TO_CROP
     test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")
     if to_shuffle:
         shuffle(test_image_paths)
@@ -287,6 +298,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
             while CLOSE_FLAG == 0:
                 img = mpim.imread(f"{fname}")
                 # ic(img)
+                CURRENT_FILEPATH = f"{fname}"
                 
                 if interactive:
                     plt.ion()
@@ -309,7 +321,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                                                           fill=None))
                                                           
                 plt.connect('key_press_event', toggle_selector)
-                plt.connect('close_event', handle_close)
+                # plt.connect('close_event', handle_close)
                 plt.show()
                 
                 # cnt.append(1)
@@ -322,6 +334,8 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 # ic(rect_selection_coords)
                 x1, x2, y1, y2 = extents
                 
+                ic(x1, x2, y1, y2)
+                
                 data = {
                     "center": center,
                     "extents": extents
@@ -329,7 +343,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 
                 TO_CROP[f"{fname}"] = data
                 ic(TO_CROP)
-                plt.close()
+                # plt.close()
                 
                 if CLOSE_FLAG == 1:
                     break
