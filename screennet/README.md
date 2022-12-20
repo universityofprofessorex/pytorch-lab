@@ -1,0 +1,1 @@
+All in one script to train, test, and evaluate screennet model
