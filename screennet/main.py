@@ -10,8 +10,8 @@ import os
 import os.path
 import pathlib
 
-extra_modules_path_api=pathlib.Path('../going_modular')
-extra_modules_path=os.path.abspath(str(extra_modules_path_api));
+extra_modules_path_api = pathlib.Path("../going_modular")
+extra_modules_path = os.path.abspath(str(extra_modules_path_api))
 print(extra_modules_path)
 
 # sys.path.insert(1, extra_modules_path)
@@ -21,6 +21,7 @@ import rich
 from rich import inspect, print
 from rich.console import Console
 from icecream import ic
+
 console = Console()
 # ---------------------------------------------------------------------------
 
@@ -28,8 +29,11 @@ console = Console()
 # ---------------------------------------------------------------------------
 import torch
 import torchvision
+
 assert int(torch.__version__.split(".")[1]) >= 12, "torch version should be 1.12+"
-assert int(torchvision.__version__.split(".")[1]) >= 13, "torchvision version should be 0.13+"
+assert (
+    int(torchvision.__version__.split(".")[1]) >= 13
+), "torchvision version should be 0.13+"
 print(f"torch version: {torch.__version__}")
 print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
@@ -45,47 +49,183 @@ from torchvision import transforms
 # Try to get torchinfo, install it if it doesn't work
 
 from torchinfo import summary
+
 # breakpoint()
 from going_modular import data_setup, engine
 
 import torchmetrics, mlxtend
+
 print(f"mlxtend version: {mlxtend.__version__}")
-assert int(mlxtend.__version__.split(".")[1]) >= 19, "mlxtend verison should be 0.19.0 or higher"
+assert (
+    int(mlxtend.__version__.split(".")[1]) >= 19
+), "mlxtend verison should be 0.19.0 or higher"
 
 # Import accuracy metric
-from helper_functions import accuracy_fn # Note: could also use torchmetrics.Accuracy()
+from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
 
 # # Setup device agnostic code
 # device = "cuda" if torch.cuda.is_available() else "cpu"
 # device
 
-# import argparse
-# import os
-# import random
-# import shutil
-# import time
-# import warnings
+import argparse
+import os
+import random
+import shutil
+import time
+import warnings
 
-# from enum import Enum
+from enum import Enum
 
-# import torch
-# import torch.backends.cudnn as cudnn
-# import torch.distributed as dist
-# import torch.multiprocessing as mp
-# import torch.nn as nn
-# import torch.nn.parallel
-# import torch.optim
-# import torch.utils.data
-# import torch.utils.data.distributed
-# import torchvision.datasets as datasets
-# import torchvision.models as models
-# import torchvision.transforms as transforms
-# from torch.optim.lr_scheduler import StepLR
-# from torch.utils.data import Subset
+import torch
+import torch.backends.cudnn as cudnn
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.parallel
+import torch.optim
+import torch.utils.data
+import torch.utils.data.distributed
+import torchvision.datasets as datasets
+import torchvision.models as models
+import torchvision.transforms as transforms
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import Subset
 
-# model_names = sorted(name for name in models.__dict__
-#     if name.islower() and not name.startswith("__")
-#     and callable(models.__dict__[name]))
+from timeit import default_timer as timer
+from pathlib import Path
+import shutil
+import requests
+import zipfile
+from pathlib import Path
+from typing import List
+
+
+def print_train_time(start: float, end: float, device: torch.device = None):
+    """Prints difference between start and end time.
+
+    Args:
+        start (float): Start time of computation (preferred in timeit format).
+        end (float): End time of computation.
+        device ([type], optional): Device that compute is running on. Defaults to None.
+
+    Returns:
+        float: time between start and end in seconds (higher is longer).
+    """
+    total_time = end - start
+    print(f"Train time on {device}: {total_time:.3f} seconds")
+    return total_time
+
+
+def walk_through_dir(dir_path):
+    """
+    Walks through dir_path returning its contents.
+    Args:
+      dir_path (str or pathlib.Path): target directory
+
+    Returns:
+      A print out of:
+        number of subdiretories in dir_path
+        number of images (files) in each subdirectory
+        name of each subdirectory
+    """
+    for dirpath, dirnames, filenames in os.walk(dir_path):
+        print(
+            f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'."
+        )
+
+def clean_dir_images(image_path):
+    for f in Path(image_path).glob("*.jpg"):
+        try:
+            f.unlink()
+        except OSError as e:
+            print("Error: %s : %s" % (f, e.strerror))
+
+
+def clean_dirs_in_dir(image_path):
+    try:
+        shutil.rmtree(image_path)
+    except OSError as e:
+        print("Error: %s : %s" % (image_path, e.strerror))
+
+
+def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath):
+
+    # Setup path to data folder
+    # data_path = Path("data/")
+    # image_path = data_path / "twitter_facebook_tiktok"
+
+    # NOTE: Use this if you need to delete folders again
+    # clean_dir_images(image_path)
+    # clean_dirs_in_dir(image_path)
+    # os.rmdir(image_path)
+    # os.unlink("data/twitter_facebook_tiktok.zip")
+
+    # If the image folder doesn't exist, download it and prepare it...
+    if image_path.is_dir():
+        print(f"{image_path} directory exists.")
+    else:
+        print(f"Did not find {image_path} directory, creating one...")
+        image_path.mkdir(parents=True, exist_ok=True)
+
+        # Download twitter, facebook, tiktok data
+        with open(data_path / "twitter_facebook_tiktok.zip", "wb") as f:
+            request = requests.get("https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1")
+            print("Downloading twitter, facebook, tiktok data...")
+            f.write(request.content)
+
+        # Unzip twitter, facebook, tiktok data
+        with zipfile.ZipFile(data_path / "twitter_facebook_tiktok.zip", "r") as zip_ref:
+            print("Unzipping twitter, facebook, tiktok data...")
+            zip_ref.extractall(image_path)
+
+# boss: use this to instantiate a new model class with all the proper setup as before
+def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Module:
+    """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
+
+    Args:
+        device (str): _description_
+        class_names (List[str]): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    # NEW: Setup the model with pretrained weights and send it to the target device (torchvision v0.13+)
+    weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT # .DEFAULT = best available weights
+    model = torchvision.models.efficientnet_b0(weights=weights).to(device)
+
+    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
+    for param in model.features.parameters():
+        param.requires_grad = False
+
+    # Set the manual seeds
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
+
+    # Get the length of class_names (one output unit for each class)
+    output_shape = len(class_names)
+
+    # Recreate the classifier layer and seed it to the target device
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout(p=0.2, inplace=True),
+        torch.nn.Linear(in_features=1280,
+                        out_features=output_shape, # same number of output units as our number of classes
+                        bias=True)).to(device)
+
+    return model
+
+model_names = sorted(name for name in models.__dict__
+    if name.islower() and not name.startswith("__")
+    and callable(models.__dict__[name]))
+
+shared_datasets_path_api = pathlib.Path(os.path.expanduser("~/Downloads/datasets"))
+shared_datasets_path = os.path.abspath(str(shared_datasets_path_api))
+print(f"shared_datasets_path - {shared_datasets_path}")
+
+# Setup path to data folder
+data_path = Path(f"{shared_datasets_path}")
+image_path = data_path / "twitter_facebook_tiktok"
+train_dir = image_path / "twitter_facebook_tiktok" / "train"
+test_dir = image_path / "twitter_facebook_tiktok" / "test"
 
 # parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 # parser.add_argument('data', metavar='DIR', nargs='?', default='imagenet',
@@ -256,10 +396,10 @@ from helper_functions import accuracy_fn # Note: could also use torchmetrics.Acc
 #     optimizer = torch.optim.SGD(model.parameters(), args.lr,
 #                                 momentum=args.momentum,
 #                                 weight_decay=args.weight_decay)
-    
+
 #     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
 #     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
-    
+
 #     # optionally resume from a checkpoint
 #     if args.resume:
 #         if os.path.isfile(args.resume):
@@ -341,9 +481,9 @@ from helper_functions import accuracy_fn # Note: could also use torchmetrics.Acc
 
 #         # evaluate on validation set
 #         acc1 = validate(val_loader, model, criterion, args)
-        
+
 #         scheduler.step()
-        
+
 #         # remember best acc@1 and save checkpoint
 #         is_best = acc1 > best_acc1
 #         best_acc1 = max(acc1, best_acc1)
@@ -514,7 +654,7 @@ from helper_functions import accuracy_fn # Note: could also use torchmetrics.Acc
 #     def __str__(self):
 #         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
 #         return fmtstr.format(**self.__dict__)
-    
+
 #     def summary(self):
 #         fmtstr = ''
 #         if self.summary_type is Summary.NONE:
@@ -527,7 +667,7 @@ from helper_functions import accuracy_fn # Note: could also use torchmetrics.Acc
 #             fmtstr = '{name} {count:.3f}'
 #         else:
 #             raise ValueError('invalid summary type %r' % self.summary_type)
-        
+
 #         return fmtstr.format(**self.__dict__)
 
 
@@ -541,7 +681,7 @@ from helper_functions import accuracy_fn # Note: could also use torchmetrics.Acc
 #         entries = [self.prefix + self.batch_fmtstr.format(batch)]
 #         entries += [str(meter) for meter in self.meters]
 #         print('\t'.join(entries))
-        
+
 #     def display_summary(self):
 #         entries = [" *"]
 #         entries += [meter.summary() for meter in self.meters]
