@@ -53,6 +53,8 @@ def train_step(
         # Send data to target device
         # X, y = X.to(device), y.to(device)
         # TODO: Might have to remove non_blocking=True
+
+        # Here the .to() method not only takes the device, but also sets non_blocking=True, which enables asynchronous data copies to GPU from pinned memory, hence allowing the CPU to keep operating during the transfer; non_blocking=True is simply a no-op otherwise.
         X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
         # 1. Forward pass
