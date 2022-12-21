@@ -230,19 +230,12 @@ model_names = sorted(
     for name in models.__dict__
     if name.islower() and not name.startswith("__") and callable(models.__dict__[name])
 )
-print(model_names)
+# print(model_names)
 
 shared_datasets_path_api = pathlib.Path(os.path.expanduser("~/Downloads/datasets"))
 shared_datasets_path = os.path.abspath(str(shared_datasets_path_api))
-print(f"shared_datasets_path - {shared_datasets_path}")
+# print(f"shared_datasets_path - {shared_datasets_path}")
 DEFAULT_DATASET_DIR = Path(f"{shared_datasets_path}")
-
-# # Setup path to data folder
-# data_path = Path(f"{shared_datasets_path}")
-# image_path = data_path / "twitter_facebook_tiktok"
-# train_dir = image_path / "twitter_facebook_tiktok" / "train"
-# test_dir = image_path / "twitter_facebook_tiktok" / "test"
-
 
 # --------------------------------------------------------------------------------------------
 
@@ -310,16 +303,7 @@ parser.add_argument(
     help="initial learning rate",
     dest="lr",
 )
-# parser.add_argument("--momentum", default=0.9, type=float, metavar="M", help="momentum")
-# parser.add_argument(
-#     "--wd",
-#     "--weight-decay",
-#     default=1e-4,
-#     type=float,
-#     metavar="W",
-#     help="weight decay (default: 1e-4)",
-#     dest="weight_decay",
-# )
+
 parser.add_argument(
     "-p",
     "--print-freq",
@@ -390,7 +374,7 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
     ic(args)
-    rich.inspect(args)
+    # rich.inspect(args)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -568,8 +552,8 @@ def main_worker(gpu, ngpus_per_node, args):
         # Setup path to data folder
         data_path = Path(args.data)
         image_path = data_path / "twitter_facebook_tiktok"
-        train_dir = image_path / "twitter_facebook_tiktok" / "train"
-        test_dir = image_path / "twitter_facebook_tiktok" / "test"
+        train_dir = image_path / "train"
+        test_dir = image_path / "test"
 
         train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
             train_dir=train_dir,
