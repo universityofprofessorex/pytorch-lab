@@ -48,7 +48,7 @@ from torchvision import datasets, transforms
 
 better_exceptions.hook()
 
-console = Console()
+console: Console = Console()
 # ---------------------------------------------------------------------------
 
 
