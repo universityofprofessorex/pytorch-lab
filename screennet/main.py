@@ -221,6 +221,26 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
     return model
 
 
+def get_model_summary(
+    model: torch.nn.Module,
+    input_size: tuple = (32, 3, 224, 224),
+    verbose: int = 0,
+    col_names: List[str] = ["input_size", "output_size", "num_params", "trainable"],
+    col_width: int = 20,
+    row_settings: List[str] = ["var_names"],
+):
+    print(f"Getting model summary for -> {model}")
+    # # Do a summary *after* freezing the features and changing the output classifier layer (uncomment for actual output)
+    summary(
+        model,
+        input_size=input_size,  # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+        verbose=verbose,
+        col_names=col_names,
+        col_width=col_width,
+        row_settings=row_settings,
+    )
+
+
 model_names = sorted(
     name
     for name in models.__dict__
@@ -644,6 +664,20 @@ def main_worker(gpu, ngpus_per_node, args):
         ),
     ).to(device)
 
+    get_model_summary(
+        model=model,
+        input_size=(
+            32,
+            3,
+            224,
+            224,
+        ),  # make sure this is "input_size", not "input_shape"
+        # col_names=["input_size"], # uncomment for smaller output
+        col_names=["input_size", "output_size", "num_params", "trainable"],
+        col_width=20,
+        row_settings=["var_names"],
+    )
+
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
@@ -701,7 +735,13 @@ def main_worker(gpu, ngpus_per_node, args):
 
 
 def train(
-    train_loader, model, criterion, optimizer, epoch, device, args
+    train_loader: torch.utils.data.DataLoader,
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    epoch: int,
+    device: torch.device,
+    args: argparse.Namespace,
 ) -> Tuple[float, float]:
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
@@ -730,7 +770,7 @@ def train(
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
-        # 1. Forward pass
+        # 1. Forward pass (logits)
         y_pred = output = model(images)
 
         # 2. Calculate  and accumulate loss
@@ -738,7 +778,7 @@ def train(
         loss = criterion(output, target)
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = ic(accuracy(output, target, topk=(1, 5)))
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
@@ -770,14 +810,20 @@ def train(
     return train_loss, train_acc
 
 
-def validate(val_loader, model, criterion, args) -> Tuple[int, float, float]:
+def validate(
+    val_loader: torch.utils.data.DataLoader,
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    args: argparse.Namespace,
+) -> Tuple[int, float, float]:
     def run_validate(loader, base_progress=0):
 
         # Setup test loss and test accuracy values
         test_loss, test_acc = 0, 0
 
         # Turn on no grad context manager
-        with torch.no_grad():
+        # with torch.no_grad():
+        with torch.inference_mode():
             end = time.time()
             # Loop through DataLoader batches
             for i, (images, target) in enumerate(loader):
@@ -953,13 +999,18 @@ class ProgressMeter(object):
         return "[" + fmt + "/" + fmt.format(num_batches) + "]"
 
 
+# https://discuss.pytorch.org/t/pred-output-topk-maxk-1-true-true-runtimeerror-selected-index-k-out-of-range/126940
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
+    # with torch.no_grad():
+    with torch.inference_mode():
         maxk = max(topk)
+        ic(maxk)
+        ic(output.shape)
         batch_size = target.size(0)
+        ic(batch_size)
 
-        _, pred = output.topk(maxk, 1, True, True)
+        _, pred = output.topk(maxk, 1, largest=True, sorted=True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
