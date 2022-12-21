@@ -39,7 +39,7 @@ def train_step(
 
     (0.1112, 0.8743)
     """
-    display_ascii_text("train_step")
+    # display_ascii_text("train_step")
     # Put model in train mode
     model.train()
 
@@ -102,7 +102,7 @@ def test_step(
 
     (0.0223, 0.8985)
     """
-    display_ascii_text("test_step")
+    # display_ascii_text("test_step")
     # Put model in eval mode
     model.eval()
 
@@ -195,6 +195,7 @@ def train(
 
     # Loop through training and testing steps for a number of epochs
     for epoch in tqdm(range(epochs)):
+        print(f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}...")
         train_loss, train_acc = train_step(
             model=model,
             dataloader=train_dataloader,
@@ -202,6 +203,7 @@ def train(
             optimizer=optimizer,
             device=device,
         )
+        print(f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}...")
         test_loss, test_acc = test_step(
             model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
         )
