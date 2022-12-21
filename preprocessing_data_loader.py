@@ -6,7 +6,7 @@
 # NOTE: https://github.com/alexattia/SimpsonRecognition/tree/fa65cc3124ed606e0ad6456ae49c734a2685db52
 # NOTE: https://github.com/ngduyanhece/object_localization/blob/master/label_pointer.py
 # NOTE: https://github.com/thtang/CheXNet-with-localization/blob/master/preprocessing.py
-# 
+#
 
 Files description
 label_data.py : tools functions for notebooks + script to name characters from frames from .avi videos
@@ -38,9 +38,11 @@ from matplotlib.backend_bases import MouseEvent
 from matplotlib.image import AxesImage
 import matplotlib.patches as patches
 from icecream import install
+
 install()
 
 from prompt_toolkit.completion import Completer, WordCompleter, merge_completers
+
 # from prompt_toolkit.eventloop.defaults import create_event_loop
 from prompt_toolkit.eventloop.inputhook import (
     new_eventloop_with_inputhook,
@@ -51,6 +53,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.shortcuts import PromptSession, input_dialog, prompt
 import rich
+from icecream import ic
 
 # **********************************************************************************************************
 # CONSTANTS - START
@@ -66,17 +69,9 @@ TEST_DIR = f"{DATASET_FOLDER}/test"
 
 # videos_folder = f"{DATASET_FOLDER}/videos"
 
-MAP_LABELS = {
-    0: "facebook",
-    1: "tiktok",
-    2: "twitter"
-}
+MAP_LABELS = {0: "facebook", 1: "tiktok", 2: "twitter"}
 
-LABEL_TO_NUM = {
-    "facebook": 0,
-    "tiktok": 1,
-    "twitter": 2
-}
+LABEL_TO_NUM = {"facebook": 0, "tiktok": 1, "twitter": 2}
 
 LABELS_FOLDER = TEST_DIR
 
@@ -130,7 +125,6 @@ def _(event):
         b.start_completion(select_first=False)
 
 
-
 # SOURCE: https://github.com/GamestonkTerminal/GamestonkTerminal/blob/e7e49538b03e6271e1709c5229f99b5c6f4b494d/gamestonk_terminal/menu.py
 def inputhook(inputhook_contex):
     while not inputhook_contex.input_is_ready():
@@ -148,9 +142,11 @@ def inputhook(inputhook_contex):
     return False
 
 
-def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filename: str):
+def np_array_to_npy_file(
+    np_array_data: np.ndarray, folder_path: str, npy_filename: str
+):
     """Take ndarry and save it to disk as a .npy file
-    
+
     SEE: https://towardsdatascience.com/what-is-npy-files-and-why-you-should-use-them-603373c78883
 
     Args:
@@ -158,35 +154,36 @@ def np_array_to_npy_file(np_array_data: np.ndarray, folder_path: str, npy_filena
         folder_path (str): _description_
         npy_filename (str): _description_
     """
-    np.save(os.path.join(folder_path,f"{npy_filename}.npy"), np_array_data)
+    np.save(os.path.join(folder_path, f"{npy_filename}.npy"), np_array_data)
+
 
 # **********************************************************************************************************
 # Matplotlib event handlers - START
 # **********************************************************************************************************
 def line_select_callback(eclick: MouseEvent, erelease: MouseEvent):
     # 'eclick and erelease are the press and release events'
-    x1, y1 = eclick.xdata, eclick.ydata # start position
+    x1, y1 = eclick.xdata, eclick.ydata  # start position
     x2, y2 = erelease.xdata, erelease.ydata  # end position
     print("(%3.2f, %3.2f) --> (%3.2f, %3.2f)" % (x1, y1, x2, y2))
     print(" The button you used were: %s %s" % (eclick.button, erelease.button))
-    
+
     # crop_img = settings.img[x1:x2,y1:y2]
-    
+
     # SOURCE: https://stackoverflow.com/questions/56313235/dynamic-interaction-between-rectangle-selector-and-a-matplotlib-figure
-    # gcf get current figure. 
+    # gcf get current figure.
     plt.gcf().canvas.draw()
 
 
 def toggle_selector(event: MouseEvent):
-    print(' Key pressed.')
-    if event.key in ['Q', 'q'] and toggle_selector.RS.active:
-        print(' RectangleSelector deactivated.')
+    print(" Key pressed.")
+    if event.key in ["Q", "q"] and toggle_selector.RS.active:
+        print(" RectangleSelector deactivated.")
         toggle_selector.RS.set_active(False)
-    if event.key in ['A', 'a'] and not toggle_selector.RS.active:
-        print(' RectangleSelector activated.')
+    if event.key in ["A", "a"] and not toggle_selector.RS.active:
+        print(" RectangleSelector activated.")
         toggle_selector.RS.set_active(True)
-    if event.key == 'enter' and toggle_selector.RS.active:
-        print(' Enter pressed.')
+    if event.key == "enter" and toggle_selector.RS.active:
+        print(" Enter pressed.")
         plt.close()
         # return
         # # cnt.append(1)
@@ -198,27 +195,29 @@ def toggle_selector(event: MouseEvent):
         # # rect_selection_coords = toggle_selector.RS.extents
         # # ic(rect_selection_coords)
         # x1, x2, y1, y2 = extents
-        
+
         # data = {
         #     "center": center,
         #     "extents": extents
         # }
-        
+
         # TO_CROP[f"{fname}"] = data
         # ic(TO_CROP)
         # plt.close()
     if event.key == "escape" and toggle_selector.RS.active:
-        print(' Escape pressed.')
-        global CLOSE_FLAG # should be global variable to change the outside CLOSE_FLAG.
+        print(" Escape pressed.")
+        global CLOSE_FLAG  # should be global variable to change the outside CLOSE_FLAG.
         CLOSE_FLAG = 1
-        print('Closed Figure!')
+        print("Closed Figure!")
         plt.close()
-        
+
+
 # to handle close event.
 def handle_close(evt):
-    global CLOSE_FLAG # should be global variable to change the outside CLOSE_FLAG.
+    global CLOSE_FLAG  # should be global variable to change the outside CLOSE_FLAG.
     CLOSE_FLAG = 1
-    print('Closed Figure!')
+    print("Closed Figure!")
+
 
 # def select_rectangle(fname: str):
 #     """Return location of interactive user click on image.
@@ -233,13 +232,13 @@ def handle_close(evt):
 #           (Units are the same as the matplotlib figure axes.)
 #           Rectangle extents are given as: (xmin, xmax, ymin, ymax).
 #     """
-    
+
 #     img = mpim.imread(f"{fname}")
 #     ic(img)
-    
+
 #     if interactive:
 #         plt.ion()
-    
+
 #     # img_axes: AxesImage
 #     img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
 #     ic(img_axes)
@@ -252,7 +251,7 @@ def handle_close(evt):
 #                            minspanx=5, minspany=5,
 #                            spancoords='pixels',
 #                            interactive=True,
-#                            props=dict(facecolor='black', 
+#                            props=dict(facecolor='black',
 #                                               edgecolor = 'black',
 #                                               alpha=1.,
 #                                               fill=None))
@@ -263,7 +262,7 @@ def handle_close(evt):
 #     rect_selection_coords = toggle_selector.RS.extents
 #     ic(rect_selection_coords)
 #     x1, x2, y1, y2 = rect_selection_coords
-    
+
 #     fig, ax = quick_plot(image)
 #     # Here are the docs fir the matplotlib RectangleSelector
 #     # https://matplotlib.org/3.1.0/api/widgets_api.html#matplotlib.widgets.RectangleSelector
@@ -306,31 +305,36 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 height, width, _ = img.shape
                 ic(width, height)
                 CURRENT_FILEPATH = f"{fname}"
-                
+
                 if interactive:
                     plt.ion()
-                
+
                 # img_axes: AxesImage
-                img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
+                img_axes = plt.imshow(
+                    img
+                )  # Display data as an image, i.e., on a 2D regular raster.
                 ic(img_axes)
                 ic(type(img_axes))
                 ic(img_axes.axes)
-            
-                toggle_selector.RS = RectangleSelector(img_axes.axes, line_select_callback,
-                                       useblit=True,
-                                       button=[1, 3],  # don't use middle button
-                                       minspanx=5, minspany=5,
-                                       spancoords='pixels',
-                                       interactive=True,
-                                       props=dict(facecolor='black', 
-                                                          edgecolor = 'black',
-                                                          alpha=1.,
-                                                          fill=None))
-                                                          
-                plt.connect('key_press_event', toggle_selector)
+
+                toggle_selector.RS = RectangleSelector(
+                    img_axes.axes,
+                    line_select_callback,
+                    useblit=True,
+                    button=[1, 3],  # don't use middle button
+                    minspanx=5,
+                    minspany=5,
+                    spancoords="pixels",
+                    interactive=True,
+                    props=dict(
+                        facecolor="black", edgecolor="black", alpha=1.0, fill=None
+                    ),
+                )
+
+                plt.connect("key_press_event", toggle_selector)
                 # plt.connect('close_event', handle_close)
                 plt.show()
-                
+
                 # cnt.append(1)
                 center = toggle_selector.RS.center  # xy coord, units same as plot axes
                 extents = toggle_selector.RS.extents  # Return (xmin, xmax, ymin, ymax)
@@ -340,25 +344,27 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
                 # rect_selection_coords = toggle_selector.RS.extents
                 # ic(rect_selection_coords)
                 x1, x2, y1, y2 = extents
-                
+
                 ic(x1, x2, y1, y2)
-                
+
                 # data = {
                 #     "center": center,
                 #     "extents": extents
                 # }
-                
+
                 # TO_CROP[f"{fname}"] = data
                 # ic(TO_CROP)
                 # # plt.close()
-                
+
                 # eg. ('/', 'Users', 'malcolm', 'dev', 'bossjones', 'pytorch-lab', 'demo', 'datasets', 'twitter_facebook_tiktok_screenshots', 'test', 'tiktok', 'IMG_7122.PNG') -> tiktok
                 class_num = LABEL_TO_NUM[fname.parts[-2]]
-                
+
                 # column_name = ['filename', 'width', 'height', 'class_num', 'xmin', 'ymin', 'xmax', 'ymax']
-                line = f"{fname}, {width}, {height}, {class_num}, {x1}, {y1}, {x2}, {y2}"
+                line = (
+                    f"{fname}, {width}, {height}, {class_num}, {x1}, {y1}, {x2}, {y2}"
+                )
                 ic(line)
-                
+
                 ############################################################
                 # ic| test_image_paths[-1]: Path('/Users/malcolm/dev/bossjones/pytorch-lab/demo/datasets/twitter_facebook_tiktok_screenshots/test/tiktok/IMG_7122.PNG')
                 # ic| width: 1179, height: 2556
@@ -399,8 +405,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
 
                 if CLOSE_FLAG == 1:
                     break
-            
-            
+
         except Exception as e:
             if e == KeyboardInterrupt:
                 return
@@ -414,7 +419,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
         #     while True:
         #         if interactive:
         #             plt.ion()
-                
+
         #         img_axes: AxesImage
         #         img_axes = plt.imshow(img)  # Display data as an image, i.e., on a 2D regular raster.
         #         ic(img_axes)
@@ -426,7 +431,7 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
         #         #     complete_while_typing=True,
         #         #     key_bindings=kb,
         #         # )
-                
+
         #         # drawtype is 'box' or 'line' or 'none'
         #         toggle_selector.RS = RectangleSelector(img_axes, line_select_callback,
         #                                drawtype='box', useblit=True,
@@ -434,20 +439,20 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
         #                                minspanx=5, minspany=5,
         #                                spancoords='pixels',
         #                                interactive=True,
-        #                                rectprops=dict(facecolor='black', 
+        #                                rectprops=dict(facecolor='black',
         #                                                   edgecolor = 'black',
         #                                                   alpha=1.,
         #                                                   fill=None))
-                                                          
+
         #         plt.connect('key_press_event', toggle_selector)
         #         plt.show()
-                
+
         # except Exception as e:
         #     if e == KeyboardInterrupt:
         #         return
         #     else:
         #         continue
-                
+
     # plt.imshow(img)
     #         m, s = np.random.randint(0, 3), np.random.randint(0, 59)
     #         print(f"fname = {fname}")
@@ -607,7 +612,6 @@ def labelized_data_from_images(to_shuffle=False, interactive=False):
     #             return
     #         else:
     #             continue
-
 
 
 # test_image_paths = get_image_files(f"{DATASET_FOLDER}/test")

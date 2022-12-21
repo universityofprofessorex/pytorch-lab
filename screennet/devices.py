@@ -1,10 +1,13 @@
 # SOURCE: https://github.com/socialhourmobile/SD-hassan-ns/blob/3b6b266b17e0fd0a9b17374cd2afbf4c59b7c245/modules/devices.py
-import sys, os, shlex
-import contextlib
-import torch
-import errors
 import argparse
-from typing import Union, Optional
+import contextlib
+
+from typing import Optional, Union
+
+import torch
+
+import errors
+from icecream import ic
 
 
 # has_mps is only available in nightly pytorch (for now) and MasOS 12.3+.
@@ -129,3 +132,53 @@ def mps_contiguous(input_tensor: torch.Tensor, device: torch.device):
 
 def mps_contiguous_to(input_tensor: torch.Tensor, device: torch.device):
     return mps_contiguous(input_tensor, device).to(device)
+
+
+def mps_check():
+    # Check that MPS is available
+    if not torch.backends.mps.is_available():
+        if not torch.backends.mps.is_built():
+            print(
+                "MPS not available because the current PyTorch install was not "
+                "built with MPS enabled."
+            )
+        else:
+            print(
+                "MPS not available because the current MacOS version is not 12.3+ "
+                "and/or you do not have an MPS-enabled device on this machine."
+            )
+
+    else:
+        ic(torch.has_mps)
+        if torch.backends.mps.is_available():
+            mps_device = torch.device("mps")
+            x = torch.ones(1, device=mps_device)
+            print(x)
+        else:
+            print("MPS device not found.")
+
+        mps_device = torch.device("mps")
+
+        # Create a Tensor directly on the mps device
+        x = torch.ones(5, device=mps_device)
+        # Or
+        x = torch.ones(5, device="mps")
+
+        # Any operation happens on the GPU
+        y = x * 2
+
+
+# SOURCE: https://github.com/pytorch/pytorch/issues/77988
+def seed_everything(seed: int):
+    # Ref: https://gist.github.com/ihoromi4/b681a9088f348942b01711f251e5f964
+    import random, os
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
