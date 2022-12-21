@@ -153,8 +153,7 @@ def download_and_predict(
         device=device,
     )
 
-
-def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str]):
+def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str], to_disk: bool = True, fname: str = "plot.png"):
     # boss: function via https://colab.research.google.com/github/mrdbourke/pytorch-deep-learning/blob/main/03_pytorch_computer_vision.ipynb#scrollTo=7aed6d76-ad1c-429e-b8e0-c80572e3ebf4
     fig, ax = plot_confusion_matrix(
         conf_mat=cmat,
@@ -165,6 +164,10 @@ def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str]):
     )
 
     plt.show()
+
+    if to_disk:
+        ic("Writing confusion matrix to disk ...")
+        plt.savefig(fname)
 
 
 def compute_accuracy(
@@ -978,6 +981,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         model, device, class_names, path_to_model
     )
 
+    cmat = compute_confusion_matrix(model, test_dataloader, device)
+    show_confusion_matrix_helper(cmat, class_names, to_disk=True, fname="confusion-matrix.png")
+
     # for epoch in range(args.start_epoch, args.epochs):
     #     if args.distributed:
     #         train_sampler.set_epoch(epoch)
@@ -1403,13 +1409,7 @@ def pred_and_plot_image(
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
 
     # 10. Plot image with predicted label and probability
-    plt.ion()
-    plt.figure()
-    plt.imshow(img)
-    plt.title(
-        f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}"
-    )
-    plt.axis(False)
+    plot_image_with_predicted_label(to_disk=True, img=img, target_image_pred_label=target_image_pred_label, target_image_pred_probs=target_image_pred_probs, class_names=class_names, fname=f"{image_path}.plot.png")
 
 
 # wrapper function of common code
@@ -1496,6 +1496,20 @@ def load_model_from_disk(save_path: str, empty_model: nn.Module) -> nn.Module:
     print("Model loaded from path {} successfully.".format(save_path))
     return empty_model
 
+def plot_image_with_predicted_label(to_disk: bool = True, img: Image = None, target_image_pred_label: torch.Tensor = None, target_image_pred_probs: torch.Tensor = None, class_names: List[str] = None, fname: str = "plot.png"):
+    # 10. Plot image with predicted label and probability
+    if not to_disk:
+        plt.ion()
+
+    plt.figure()
+    plt.imshow(img)
+    plt.title(
+        f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}"
+    )
+    plt.axis(False)
+
+    if to_disk:
+        plt.savefig(fname)
 
 if __name__ == "__main__":
     import traceback
