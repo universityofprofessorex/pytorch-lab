@@ -49,7 +49,9 @@ def train_step(
     # Loop through data loader data batches
     for batch, (X, y) in enumerate(dataloader):
         # Send data to target device
-        X, y = X.to(device), y.to(device)
+        # X, y = X.to(device), y.to(device)
+        # TODO: Might have to remove non_blocking=True
+        X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
         # 1. Forward pass
         y_pred = model(X)
@@ -112,7 +114,9 @@ def test_step(
         # Loop through DataLoader batches
         for batch, (X, y) in enumerate(dataloader):
             # Send data to target device
-            X, y = X.to(device), y.to(device)
+            # X, y = X.to(device), y.to(device)
+            # TODO: Might have to remove non_blocking=True
+            X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
             # 1. Forward pass
             test_pred_logits = model(X)
@@ -131,6 +135,7 @@ def test_step(
     return test_loss, test_acc
 
 
+# 1. Take in various parameters required for training and test steps
 def train(
     model: torch.nn.Module,
     train_dataloader: torch.utils.data.DataLoader,
@@ -172,8 +177,8 @@ def train(
               test_acc: [0.3400, 0.2973]}
     """
 
-    display_ascii_text("train")
-
+    # display_ascii_text("train")
+    ic(f"[INFO] Training model {model.__class__.__name__} on device '{device}' for {epochs} epochs...")
     ic(model)
     ic(train_dataloader)
     ic(test_dataloader)

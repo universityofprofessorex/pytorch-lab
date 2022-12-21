@@ -8,6 +8,8 @@
 import os
 import os.path
 import pathlib
+import pandas as pd
+# from rich_dataframe import prettify
 
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
@@ -34,6 +36,8 @@ from icecream import ic
 import rich
 from rich import inspect, print
 from rich.console import Console
+from rich.table import Table
+from rich import box
 
 # ---------------------------------------------------------------------------
 import torch
@@ -44,7 +48,7 @@ import devices  # pylint: disable=import-error
 
 better_exceptions.hook()
 
-# console = Console()
+console = Console()
 # ---------------------------------------------------------------------------
 
 
@@ -89,7 +93,7 @@ from urllib.parse import urlparse
 import warnings
 import zipfile
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Union
 
 from PIL import Image
 
@@ -299,6 +303,7 @@ def run_train(
     optimizer: torch.optim.Optimizer,
     epochs: int,
     device: torch.device,
+    batch_size: int
 ):
     print("No other options selected so we are training this model....")
     ic(model)
@@ -323,27 +328,112 @@ def run_train(
 
     # End the timer and print out how long it took
     end_time = timer()
-    print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
+    # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
+    # Print out timer and results
+    total_train_time = print_train_time(start=start_time,
+                                        end=end_time,
+                                        device=device,
+                                        machine="silicontop")
+
+    dataset_name="twitter_facebook_tiktok"
+
+    write_results_to_csv("silicontop", device, dataset_name=dataset_name, num_epochs=epochs, batch_size=batch_size, image_size=(224, 224), train_data=train_dataloader.dataset, test_data=test_dataloader.dataset, total_train_time=total_train_time, model=model)
+
+    results_df = inspect_csv_results()
+    ic("Plot performance benchmarks")
+    # Get names of devices
+    machine_and_device_list = [row[1][0] + " (" + row[1][1] + ")" for row in results_df[["machine", "device"]].iterrows()]
+
+    # Plot and save figure
+    plt.figure(figsize=(10, 7))
+    plt.style.use('fivethirtyeight')
+    plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
+    plt.title(f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}", size=16)
+    plt.xlabel("Machine (device)", size=14)
+    plt.ylabel("Seconds per epoch (lower is better)", size=14);
+    save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
+    print(f"Saving figure to '{save_path}'")
+    plt.savefig(save_path)
 
     ic("Plot the loss curves of our model")
     plot_loss_curves(results, to_disk=True)
 
+# SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
+def write_results_to_csv(MACHINE, device, dataset_name="", num_epochs="", batch_size="", image_size="", train_data="", test_data="", total_train_time="", model=""):
+    # Create results dict
+    results = {
+    "machine": MACHINE,
+    "device": device,
+    "dataset_name": dataset_name,
+    "epochs": num_epochs,
+    "batch_size": batch_size,
+    "image_size": image_size[0],
+    "num_train_samples": len(train_data),
+    "num_test_samples": len(test_data),
+    "total_train_time": round(total_train_time, 3),
+    "time_per_epoch": round(total_train_time/num_epochs, 3),
+    "model": model.__class__.__name__
+    }
 
-def print_train_time(start: float, end: float, device: torch.device = None):
-    """Prints difference between start and end time.
+    results_df = pd.DataFrame(results, index=[0])
 
+    # Write CSV to file
+    if not os.path.exists("results/"):
+        os.makedirs("results/")
+
+    results_df.to_csv(f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
+                      index=False)
+
+def df_to_table(
+    pandas_dataframe: pd.DataFrame,
+    rich_table: Table,
+    show_index: bool = True,
+    index_name: Optional[str] = None,
+) -> Table:
+    """Convert a pandas.DataFrame obj into a rich.Table obj.
     Args:
-        start (float): Start time of computation (preferred in timeit format).
-        end (float): End time of computation.
-        device ([type], optional): Device that compute is running on. Defaults to None.
-
+        pandas_dataframe (DataFrame): A Pandas DataFrame to be converted to a rich Table.
+        rich_table (Table): A rich Table that should be populated by the DataFrame values.
+        show_index (bool): Add a column with a row count to the table. Defaults to True.
+        index_name (str, optional): The column name to give to the index column. Defaults to None, showing no value.
     Returns:
-        float: time between start and end in seconds (higher is longer).
-    """
-    total_time = end - start
-    print(f"Train time on {device}: {total_time:.3f} seconds")
-    return total_time
+        Table: The rich Table instance passed, populated with the DataFrame values."""
 
+    if show_index:
+        index_name = str(index_name) if index_name else ""
+        rich_table.add_column(index_name)
+
+    for column in pandas_dataframe.columns:
+        rich_table.add_column(str(column))
+
+    for index, value_list in enumerate(pandas_dataframe.values.tolist()):
+        row = [str(index)] if show_index else []
+        row += [str(x) for x in value_list]
+        rich_table.add_row(*row)
+
+    return rich_table
+
+def inspect_csv_results():
+    results_paths = list(Path("results").glob("*.csv"))
+
+    df_list = []
+    for path in results_paths:
+        df_list.append(pd.read_csv(path))
+    results_df = pd.concat(df_list).reset_index(drop=True)
+    # prettify(results_df)
+
+    # Initiate a Table instance to be modified
+    table = Table(show_header=True, header_style="bold magenta")
+
+    # Modify the table instance to have the data from the DataFrame
+    table = df_to_table(df, table)
+
+    # Update the style of the table
+    table.row_styles = ["none", "dim"]
+    table.box = box.SIMPLE_HEAD
+
+    console.print(table)
+    return results_df
 
 def walk_through_dir(dir_path):
     """
@@ -992,6 +1082,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             optimizer,
             args.epochs,
             device,
+            args.batch_size
         )
     )
     print("No other options selected so we are training this model....")
@@ -1639,6 +1730,21 @@ def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
 
+# SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
+def print_train_time(start, end, device=None, machine=None):
+    """Prints difference between start and end time.
+    Args:
+        start (float): Start time of computation (preferred in timeit format).
+        end (float): End time of computation.
+    Returns:
+        float: time between start and end in seconds (higher is longer).
+    """
+    total_time = end - start
+    if device:
+        print(f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n")
+    else:
+        print(f"\nTrain time: {total_time:.3f} seconds\n")
+    return round(total_time, 3)
 
 if __name__ == "__main__":
     import traceback
