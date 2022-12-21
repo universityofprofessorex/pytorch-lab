@@ -9,6 +9,7 @@ import os
 import os.path
 import pathlib
 import pandas as pd
+
 # from rich_dataframe import prettify
 
 # ---------------------------------------------------------------------------
@@ -303,7 +304,7 @@ def run_train(
     optimizer: torch.optim.Optimizer,
     epochs: int,
     device: torch.device,
-    batch_size: int
+    batch_size: int,
 ):
     print("No other options selected so we are training this model....")
     # ic(model)
@@ -330,27 +331,43 @@ def run_train(
     end_time = timer()
     # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
     # Print out timer and results
-    total_train_time = print_train_time(start=start_time,
-                                        end=end_time,
-                                        device=device,
-                                        machine="silicontop")
+    total_train_time = print_train_time(
+        start=start_time, end=end_time, device=device, machine="silicontop"
+    )
 
-    dataset_name="twitter_facebook_tiktok"
+    dataset_name = "twitter_facebook_tiktok"
 
-    write_results_to_csv("silicontop", device, dataset_name=dataset_name, num_epochs=epochs, batch_size=batch_size, image_size=(224, 224), train_data=train_dataloader.dataset, test_data=test_dataloader.dataset, total_train_time=total_train_time, model=model)
+    write_results_to_csv(
+        "silicontop",
+        device,
+        dataset_name=dataset_name,
+        num_epochs=epochs,
+        batch_size=batch_size,
+        image_size=(224, 224),
+        train_data=train_dataloader.dataset,
+        test_data=test_dataloader.dataset,
+        total_train_time=total_train_time,
+        model=model,
+    )
 
     results_df = inspect_csv_results()
     ic("Plot performance benchmarks")
     # Get names of devices
-    machine_and_device_list = [row[1][0] + " (" + row[1][1] + ")" for row in results_df[["machine", "device"]].iterrows()]
+    machine_and_device_list = [
+        row[1][0] + " (" + row[1][1] + ")"
+        for row in results_df[["machine", "device"]].iterrows()
+    ]
 
     # Plot and save figure
     plt.figure(figsize=(10, 7))
-    plt.style.use('fivethirtyeight')
+    plt.style.use("fivethirtyeight")
     plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
-    plt.title(f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}", size=16)
+    plt.title(
+        f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}",
+        size=16,
+    )
     plt.xlabel("Machine (device)", size=14)
-    plt.ylabel("Seconds per epoch (lower is better)", size=14);
+    plt.ylabel("Seconds per epoch (lower is better)", size=14)
     save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
     print(f"Saving figure to '{save_path}'")
     plt.savefig(save_path)
@@ -358,21 +375,33 @@ def run_train(
     ic("Plot the loss curves of our model")
     plot_loss_curves(results, to_disk=True)
 
+
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
-def write_results_to_csv(MACHINE, device, dataset_name="", num_epochs="", batch_size="", image_size="", train_data="", test_data="", total_train_time="", model=""):
+def write_results_to_csv(
+    MACHINE,
+    device,
+    dataset_name="",
+    num_epochs="",
+    batch_size="",
+    image_size="",
+    train_data="",
+    test_data="",
+    total_train_time="",
+    model="",
+):
     # Create results dict
     results = {
-    "machine": MACHINE,
-    "device": device,
-    "dataset_name": dataset_name,
-    "epochs": num_epochs,
-    "batch_size": batch_size,
-    "image_size": image_size[0],
-    "num_train_samples": len(train_data),
-    "num_test_samples": len(test_data),
-    "total_train_time": round(total_train_time, 3),
-    "time_per_epoch": round(total_train_time/num_epochs, 3),
-    "model": model.__class__.__name__
+        "machine": MACHINE,
+        "device": device,
+        "dataset_name": dataset_name,
+        "epochs": num_epochs,
+        "batch_size": batch_size,
+        "image_size": image_size[0],
+        "num_train_samples": len(train_data),
+        "num_test_samples": len(test_data),
+        "total_train_time": round(total_train_time, 3),
+        "time_per_epoch": round(total_train_time / num_epochs, 3),
+        "model": model.__class__.__name__,
     }
 
     results_df = pd.DataFrame(results, index=[0])
@@ -381,8 +410,11 @@ def write_results_to_csv(MACHINE, device, dataset_name="", num_epochs="", batch_
     if not os.path.exists("results/"):
         os.makedirs("results/")
 
-    results_df.to_csv(f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
-                      index=False)
+    results_df.to_csv(
+        f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
+        index=False,
+    )
+
 
 def df_to_table(
     pandas_dataframe: pd.DataFrame,
@@ -413,6 +445,7 @@ def df_to_table(
 
     return rich_table
 
+
 def inspect_csv_results():
     results_paths = list(Path("results").glob("*.csv"))
 
@@ -434,6 +467,7 @@ def inspect_csv_results():
 
     console.print(table)
     return results_df
+
 
 def walk_through_dir(dir_path):
     """
@@ -958,7 +992,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-
     # # define loss function (criterion), optimizer, and learning rate scheduler
     # # criterion = nn.CrossEntropyLoss().to(device)
     # # Define loss and optimizer
@@ -1000,7 +1033,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     else:
         train_sampler = None
         val_sampler = None
-
 
     if args.info:
         info(args, dataset_root_dir=image_path)
@@ -1066,7 +1098,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             optimizer,
             args.epochs,
             device,
-            args.batch_size
+            args.batch_size,
         )
     )
     print("No other options selected so we are training this model....")
@@ -1628,6 +1660,13 @@ def plot_image_with_predicted_label(
 
 
 def validate_seed(seed: int):
+    """Sets random sets for torch operations.
+
+    Note: Recall a random seed is a way of flavouring the randomness generated by a computer. They aren't necessary to always set when running machine learning code, however, they help ensure there's an element of reproducibility (the numbers I get with my code are similar to the numbers you get with your code). Outside of an education or experimental setting, random seeds generally aren't required.
+
+    Args:
+        seed (int): _description_
+    """
     ic(seed, type(seed))
     devices.seed_everything(seed)
 
@@ -1715,6 +1754,7 @@ def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
 
+
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
 def print_train_time(start, end, device=None, machine=None):
     """Prints difference between start and end time.
@@ -1726,10 +1766,13 @@ def print_train_time(start, end, device=None, machine=None):
     """
     total_time = end - start
     if device:
-        print(f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n")
+        print(
+            f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n"
+        )
     else:
         print(f"\nTrain time: {total_time:.3f} seconds\n")
     return round(total_time, 3)
+
 
 if __name__ == "__main__":
     import traceback

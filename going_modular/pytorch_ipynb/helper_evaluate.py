@@ -19,12 +19,12 @@ def compute_accuracy(model, data_loader, device):
             _, predicted_labels = torch.max(logits, 1)
             num_examples += targets.size(0)
             correct_pred += (predicted_labels == targets).sum()
-    return correct_pred.float()/num_examples * 100
+    return correct_pred.float() / num_examples * 100
 
 
 def compute_epoch_loss(model, data_loader, device):
     model.eval()
-    curr_loss, num_examples = 0., 0
+    curr_loss, num_examples = 0.0, 0
     with torch.no_grad():
         for features, targets in data_loader:
             features = features.to(device)
@@ -32,7 +32,7 @@ def compute_epoch_loss(model, data_loader, device):
             logits = model(features)
             if isinstance(logits, torch.distributed.rpc.api.RRef):
                 logits = logits.local_value()
-            loss = F.cross_entropy(logits, targets, reduction='sum')
+            loss = F.cross_entropy(logits, targets, reduction="sum")
             num_examples += targets.size(0)
             curr_loss += loss
 
@@ -51,8 +51,8 @@ def compute_confusion_matrix(model, data_loader, device):
             targets = targets
             logits = model(features)
             _, predicted_labels = torch.max(logits, 1)
-            all_targets.extend(targets.to('cpu'))
-            all_predictions.extend(predicted_labels.to('cpu'))
+            all_targets.extend(targets.to("cpu"))
+            all_predictions.extend(predicted_labels.to("cpu"))
 
     all_predictions = all_predictions
     all_predictions = np.array(all_predictions)

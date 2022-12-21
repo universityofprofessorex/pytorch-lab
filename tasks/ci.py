@@ -133,7 +133,9 @@ def mypy(ctx, loc="local", verbose=0):
         ctx.config["run"]["env"][k] = v
 
     # ctx.run("mypy --config-file ./lint-configs-python/python/mypy.ini pytorch_lab tests")
-    ctx.run("mypy --config-file ./lint-configs-python/python/mypy.ini preprocessing_data_loader.py tests")
+    ctx.run(
+        "mypy --config-file ./lint-configs-python/python/mypy.ini preprocessing_data_loader.py tests"
+    )
 
 
 @task(
@@ -475,6 +477,7 @@ def browser(ctx, loc="local"):
 
     msg = "Finished loading everything into browser"
     click.secho(msg, fg=COLOR_SUCCESS)
+
 
 @task(
     pre=[

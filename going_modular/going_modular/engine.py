@@ -8,10 +8,56 @@ from typing import Dict, List, Tuple
 from icecream import ic
 import pyfiglet
 from rich import print
+from torch.utils.tensorboard import SummaryWriter
+
+
+def create_writer(
+    experiment_name: str, model_name: str, extra: str = None
+) -> torch.utils.tensorboard.writer.SummaryWriter():
+    """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
+
+    log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
+
+    Where timestamp is the current date in YYYY-MM-DD format.
+
+    Args:
+        experiment_name (str): Name of experiment.
+        model_name (str): Name of model.
+        extra (str, optional): Anything extra to add to the directory. Defaults to None.
+
+    Returns:
+        torch.utils.tensorboard.writer.SummaryWriter(): Instance of a writer saving to log_dir.
+
+    Example usage:
+        # Create a writer saving to "runs/2022-06-04/data_10_percent/effnetb2/5_epochs/"
+        writer = create_writer(experiment_name="data_10_percent",
+                               model_name="effnetb2",
+                               extra="5_epochs")
+        # The above is the same as:
+        writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
+    """
+    from datetime import datetime
+    import os
+
+    # Get timestamp of current date (all experiments on certain day live in same folder)
+    timestamp = datetime.now().strftime(
+        "%Y-%m-%d"
+    )  # returns current date in YYYY-MM-DD format
+
+    if extra:
+        # Create log directory path
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+
+    print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
+    return SummaryWriter(log_dir=log_dir)
+
 
 def display_ascii_text(txt: str, font: str = "stop"):
     title = pyfiglet.figlet_format(txt, font=font)
-    print(f'[magenta]{title}[/magenta]')
+    print(f"[magenta]{title}[/magenta]")
+
 
 def train_step(
     model: torch.nn.Module,
@@ -144,6 +190,7 @@ def train(
     loss_fn: torch.nn.Module,
     epochs: int,
     device: torch.device,
+    writer: torch.utils.tensorboard.writer.SummaryWriter,  # new parameter to take in a writer
 ) -> Dict[str, List]:
     """Trains and tests a PyTorch model.
 
@@ -161,6 +208,7 @@ def train(
     loss_fn: A PyTorch loss function to calculate loss on both datasets.
     epochs: An integer indicating how many epochs to train for.
     device: A target device to compute on (e.g. "cuda" or "cpu").
+    writer: A SummaryWriter() instance to log model results to.
 
     Returns:
     A dictionary of training and testing loss as well as training and
@@ -178,7 +226,9 @@ def train(
     """
 
     # display_ascii_text("train")
-    ic(f"[INFO] Training model {model.__class__.__name__} on device '{device}' for {epochs} epochs...")
+    ic(
+        f"[INFO] Training model {model.__class__.__name__} on device '{device}' for {epochs} epochs..."
+    )
     ic(model)
     ic(train_dataloader)
     ic(test_dataloader)
@@ -195,7 +245,9 @@ def train(
 
     # Loop through training and testing steps for a number of epochs
     for epoch in tqdm(range(epochs)):
-        print(f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}...")
+        print(
+            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+        )
         train_loss, train_acc = train_step(
             model=model,
             dataloader=train_dataloader,
@@ -203,7 +255,9 @@ def train(
             optimizer=optimizer,
             device=device,
         )
-        print(f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}...")
+        print(
+            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+        )
         test_loss, test_acc = test_step(
             model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
         )
@@ -222,6 +276,27 @@ def train(
         results["train_acc"].append(train_acc)
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
+
+        ### New: Use the writer parameter to track experiments ###
+        # See if there's a writer, if so, log to it
+        if writer:
+            # Add results to SummaryWriter
+            writer.add_scalars(
+                main_tag="Loss",
+                tag_scalar_dict={"train_loss": train_loss, "test_loss": test_loss},
+                global_step=epoch,
+            )
+            writer.add_scalars(
+                main_tag="Accuracy",
+                tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
+                global_step=epoch,
+            )
+
+            # Close the writer
+            writer.close()
+        else:
+            pass
+    ### End new ###
 
     # Return the filled results at the end of the epochs
     return results

@@ -49,7 +49,7 @@ dependencies:
       - uritools
       - rich[jupyter]
       - icecream
-      - black
+      - black[jupyter]
       - pylint
       - isort
       - autopep8
