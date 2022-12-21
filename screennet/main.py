@@ -8,9 +8,7 @@
 import os
 import os.path
 import pathlib
-import pandas as pd
-
-# from rich_dataframe import prettify
+import platform
 
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
@@ -19,7 +17,10 @@ import pandas as pd
 import sys
 
 import bpdb
-import platform
+import pandas as pd
+
+# from rich_dataframe import prettify
+
 
 extra_modules_path_api = pathlib.Path("../going_modular")
 extra_modules_path = os.path.abspath(str(extra_modules_path_api))
@@ -30,22 +31,20 @@ sys.path.append(extra_modules_path)
 sys.path.append("../")
 # import better_exceptions
 import better_exceptions
-
-# from rich.traceback import install
-# install(show_locals=True)
-from icecream import ic
+import devices  # pylint: disable=import-error
 import rich
-from rich import inspect, print
-from rich.console import Console
-from rich.table import Table
-from rich import box
 
 # ---------------------------------------------------------------------------
 import torch
 import torchvision
-from torchvision import datasets, transforms
 
-import devices  # pylint: disable=import-error
+# from rich.traceback import install
+# install(show_locals=True)
+from icecream import ic
+from rich import box, inspect, print
+from rich.console import Console
+from rich.table import Table
+from torchvision import datasets, transforms
 
 better_exceptions.hook()
 
@@ -54,57 +53,44 @@ console = Console()
 
 
 assert int(torch.__version__.split(".")[1]) >= 12, "torch version should be 1.12+"
-assert (
-    int(torchvision.__version__.split(".")[1]) >= 13
-), "torchvision version should be 0.13+"
+assert int(torchvision.__version__.split(".")[1]) >= 13, "torchvision version should be 0.13+"
 # print(f"torch version: {torch.__version__}")
 # print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
-
-# breakpoint()
-from going_modular import data_setup, engine, utils  # pylint: disable=no-name-in-module
 
 # Continue with regular imports
 import matplotlib.pyplot as plt
 import mlxtend
 import torch
-from torch import nn
-from torchinfo import summary
 import torchmetrics
 import torchvision
+from torch import nn
+from torchinfo import summary
 from torchvision import transforms
+
+# breakpoint()
+from going_modular import data_setup, engine, utils  # pylint: disable=no-name-in-module
 
 # Try to get torchinfo, install it if it doesn't work
 
 
 # print(f"mlxtend version: {mlxtend.__version__}")
-assert (
-    int(mlxtend.__version__.split(".")[1]) >= 19
-), "mlxtend verison should be 0.19.0 or higher"
+assert int(mlxtend.__version__.split(".")[1]) >= 19, "mlxtend verison should be 0.19.0 or higher"
 
 import argparse
-from enum import Enum
-from itertools import product
 import os
-from pathlib import Path
 import random
 import shutil
-from timeit import default_timer as timer
-from urllib.parse import urlparse
 import warnings
 import zipfile
+from enum import Enum
+from itertools import product
+from pathlib import Path
+from timeit import default_timer as timer
+from typing import List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
-from typing import List, Tuple, Optional, Union
-
-from PIL import Image
-
-# Import accuracy metric
-from helper_functions import (
-    accuracy_fn,
-    plot_loss_curves,
-)  # Note: could also use torchmetrics.Accuracy()
 import matplotlib
-from mlxtend.plotting import plot_confusion_matrix
 import numpy as np
 import numpy.typing as npt
 import requests
@@ -118,22 +104,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim
-from torch.optim.lr_scheduler import StepLR
 import torch.utils.data
-from torch.utils.data import Subset
 import torch.utils.data.distributed
-from torchmetrics import ConfusionMatrix
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+from mlxtend.plotting import plot_confusion_matrix
+from PIL import Image
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import Subset
+from torch.utils.tensorboard import SummaryWriter
+from torchmetrics import ConfusionMatrix
 from watermark import watermark
 
-from torch.utils.tensorboard import SummaryWriter
+# Import accuracy metric
+from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
+    accuracy_fn,
+    plot_loss_curves,
+)
 
 
-def create_writer(
-    experiment_name: str, model_name: str, extra: str = None
-) -> SummaryWriter:
+def create_writer(experiment_name: str, model_name: str, extra: str = None) -> SummaryWriter:
     """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
 
     log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
@@ -156,13 +147,11 @@ def create_writer(
         # The above is the same as:
         writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
     """
-    from datetime import datetime
     import os
+    from datetime import datetime
 
     # Get timestamp of current date (all experiments on certain day live in same folder)
-    timestamp = datetime.now().strftime(
-        "%Y-%m-%d"
-    )  # returns current date in YYYY-MM-DD format
+    timestamp = datetime.now().strftime("%Y-%m-%d")  # returns current date in YYYY-MM-DD format
 
     if extra:
         # Create log directory path
@@ -231,9 +220,7 @@ def show_confusion_matrix_helper(
         plt.show()
 
 
-def compute_accuracy(
-    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
-):
+def compute_accuracy(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str):
     model.eval()
     with torch.no_grad():
         correct_pred, num_examples = 0, 0
@@ -251,9 +238,7 @@ def compute_accuracy(
     return correct_pred.float() / num_examples * 100
 
 
-def compute_epoch_loss(
-    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
-):
+def compute_epoch_loss(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str):
     model.eval()
     curr_loss, num_examples = 0.0, 0
     with torch.no_grad():
@@ -271,9 +256,7 @@ def compute_epoch_loss(
         return curr_loss
 
 
-def compute_confusion_matrix(
-    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device
-):
+def compute_confusion_matrix(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device):
 
     all_targets, all_predictions = [], []
     with torch.no_grad():
@@ -330,9 +313,7 @@ def run_validate(
 
     start_time = timer()
     # Setup testing and save the results
-    test_loss, test_acc = engine.test_step(
-        model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
-    )
+    test_loss, test_acc = engine.test_step(model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device)
 
     # End the timer and print out how long it took
     end_time = timer()
@@ -379,25 +360,19 @@ def run_train(
         loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        writer=create_writer(experiment_name=dataloader_name,
-                                       model_name=model.name,
-                                       extra=f"{epochs}_epochs")
+        writer=create_writer(experiment_name=dataloader_name, model_name=model.name, extra=f"{epochs}_epochs"),
     )
 
     # End the timer and print out how long it took
     end_time = timer()
     # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
     # Print out timer and results
-    total_train_time = print_train_time(
-        start=start_time, end=end_time, device=device, machine="silicontop"
-    )
+    total_train_time = print_train_time(start=start_time, end=end_time, device=device, machine="silicontop")
 
     # 10. Save the model to file so we can get back the best model
     save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
-    utils.save_model(model=model,
-               target_dir="models",
-               model_name=save_filepath)
-    print("-"*50 + "\n")
+    utils.save_model(model=model, target_dir="models", model_name=save_filepath)
+    print("-" * 50 + "\n")
 
     dataset_name = "twitter_facebook_tiktok"
 
@@ -417,10 +392,7 @@ def run_train(
     results_df = inspect_csv_results()
     ic("Plot performance benchmarks")
     # Get names of devices
-    machine_and_device_list = [
-        row[1][0] + " (" + row[1][1] + ")"
-        for row in results_df[["machine", "device"]].iterrows()
-    ]
+    machine_and_device_list = [row[1][0] + " (" + row[1][1] + ")" for row in results_df[["machine", "device"]].iterrows()]
 
     # Plot and save figure
     plt.figure(figsize=(10, 7))
@@ -432,7 +404,9 @@ def run_train(
     )
     plt.xlabel("Machine (device)", size=14)
     plt.ylabel("Seconds per epoch (lower is better)", size=14)
-    save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
+    save_path = (
+        f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
+    )
     print(f"Saving figure to '{save_path}'")
     plt.savefig(save_path)
 
@@ -546,9 +520,7 @@ def walk_through_dir(dir_path):
         name of each subdirectory
     """
     for dirpath, dirnames, filenames in os.walk(dir_path):
-        print(
-            f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'."
-        )
+        print(f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'.")
 
 
 def clean_dir_images(image_path):
@@ -587,9 +559,7 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
         # Download twitter, facebook, tiktok data
         with open(data_path / "twitter_facebook_tiktok.zip", "wb") as f:
-            request = requests.get(
-                "https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1"
-            )
+            request = requests.get("https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1")
             print("Downloading twitter, facebook, tiktok data...")
             f.write(request.content)
 
@@ -600,9 +570,7 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
 
 # boss: use this to instantiate a new model class with all the proper setup as before
-def create_effnetb0_model(
-    device: str, class_names: List[str], args: argparse.Namespace
-) -> torch.nn.Module:
+def create_effnetb0_model(device: str, class_names: List[str], args: argparse.Namespace) -> torch.nn.Module:
     """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
 
     Args:
@@ -667,9 +635,7 @@ def get_model_summary(
 
 
 model_names = sorted(
-    name
-    for name in models.__dict__
-    if name.islower() and not name.startswith("__") and callable(models.__dict__[name])
+    name for name in models.__dict__ if name.islower() and not name.startswith("__") and callable(models.__dict__[name])
 )
 # print(model_names)
 
@@ -694,18 +660,14 @@ parser.add_argument(
     metavar="ARCH",
     default="efficientnet_b0",
     choices=model_names,
-    help="model architecture: "
-    + " | ".join(model_names)
-    + " (default: 'efficientnet_b0)",
+    help="model architecture: " + " | ".join(model_names) + " (default: 'efficientnet_b0)",
 )
 parser.add_argument(
     "--model-weights",
     metavar="Model Weights",
     default="EfficientNet_B0_Weights",
     choices=model_names,
-    help="model weight: "
-    + " | ".join(model_names)
-    + " (default: 'EfficientNet_B0_Weights)",
+    help="model weight: " + " | ".join(model_names) + " (default: 'EfficientNet_B0_Weights)",
 )
 parser.add_argument(
     "-j",
@@ -715,9 +677,7 @@ parser.add_argument(
     metavar="N",
     help="number of data loading workers (default: 4)",
 )
-parser.add_argument(
-    "--epochs", default=5, type=int, metavar="N", help="number of total epochs to run"
-)
+parser.add_argument("--epochs", default=5, type=int, metavar="N", help="number of total epochs to run")
 parser.add_argument(
     "--start-epoch",
     default=0,
@@ -806,21 +766,15 @@ parser.add_argument(
     type=int,
     help="number of nodes for distributed training",
 )
-parser.add_argument(
-    "--rank", default=-1, type=int, help="node rank for distributed training"
-)
+parser.add_argument("--rank", default=-1, type=int, help="node rank for distributed training")
 parser.add_argument(
     "--dist-url",
     default="tcp://224.66.41.62:23456",
     type=str,
     help="url used to set up distributed training",
 )
-parser.add_argument(
-    "--dist-backend", default="nccl", type=str, help="distributed backend"
-)
-parser.add_argument(
-    "--seed", default=42, type=int, help="seed for initializing training. "
-)
+parser.add_argument("--dist-backend", default="nccl", type=str, help="distributed backend")
+parser.add_argument("--seed", default=42, type=int, help="seed for initializing training. ")
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
     "--multiprocessing-distributed",
@@ -855,10 +809,7 @@ def main():
         # )
 
     if args.gpu is not None:
-        warnings.warn(
-            "You have chosen a specific GPU. This will completely "
-            "disable data parallelism."
-        )
+        warnings.warn("You have chosen a specific GPU. This will completely " "disable data parallelism.")
 
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
@@ -938,9 +889,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 # ourselves based on the total number of GPUs of the current node.
                 args.batch_size = int(args.batch_size / ngpus_per_node)
                 args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-                model = torch.nn.parallel.DistributedDataParallel(
-                    model, device_ids=[args.gpu]
-                )
+                model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
                 ic(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
             else:
                 ic("Attempting to use single gpu device with DistributedDataParallel")
@@ -979,12 +928,8 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # Data loading code
     if args.dummy:
         print("=> Dummy data is used!")
-        train_dataset = datasets.FakeData(
-            1281167, (3, 224, 224), 1000, transforms.ToTensor()
-        )
-        val_dataset = datasets.FakeData(
-            50000, (3, 224, 224), 1000, transforms.ToTensor()
-        )
+        train_dataset = datasets.FakeData(1281167, (3, 224, 224), 1000, transforms.ToTensor())
+        val_dataset = datasets.FakeData(50000, (3, 224, 224), 1000, transforms.ToTensor())
     else:
 
         # Setup path to data folder
@@ -1007,12 +952,8 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
         # get datasets for confusion matrix
         # Use ImageFolder to create dataset(s)
-        train_dataset = train_data = datasets.ImageFolder(
-            train_dir, transform=auto_transforms
-        )
-        val_dataset = test_data = datasets.ImageFolder(
-            test_dir, transform=auto_transforms
-        )
+        train_dataset = train_data = datasets.ImageFolder(train_dir, transform=auto_transforms)
+        val_dataset = test_data = datasets.ImageFolder(test_dir, transform=auto_transforms)
 
     # -----------------------------
     # BOSSNEW
@@ -1089,19 +1030,13 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             model.load_state_dict(checkpoint["state_dict"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             # scheduler.load_state_dict(checkpoint["scheduler"])
-            print(
-                "=> loaded checkpoint '{}' (epoch {})".format(
-                    args.resume, checkpoint["epoch"]
-                )
-            )
+            print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint["epoch"]))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(
-            val_dataset, shuffle=False, drop_last=True
-        )
+        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
     else:
         train_sampler = None
         val_sampler = None
@@ -1177,14 +1112,10 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     path_to_model = save_model_to_disk("ScreenNetV1", model)
 
-    loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names, path_to_model, args
-    )
+    loaded_model_for_inference = run_get_model_for_inference(model, device, class_names, path_to_model, args)
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
-    show_confusion_matrix_helper(
-        cmat, class_names, to_disk=True, fname="confusion-matrix.png"
-    )
+    show_confusion_matrix_helper(cmat, class_names, to_disk=True, fname="confusion-matrix.png")
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -1311,9 +1242,7 @@ def get_random_images_from_dataset(
     import random
 
     num_images_to_plot = 3
-    test_image_path_list = list(
-        Path(test_dir).glob("*/*.jpg")
-    )  # get list all image paths from test data
+    test_image_path_list = list(Path(test_dir).glob("*/*.jpg"))  # get list all image paths from test data
     test_image_path_sample = random.sample(
         population=test_image_path_list,  # go through all of the test image paths
         k=num_images_to_plot,
@@ -1359,9 +1288,7 @@ def pred_and_plot_image(
             [
                 transforms.Resize(image_size),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
 
@@ -1421,11 +1348,7 @@ def run_save_model_for_inference(model: torch.nn.Module) -> Tuple[pathlib.PosixP
 
 # wrapper function of common code
 def run_get_model_for_inference(
-    model: torch.nn.Module,
-    device: torch.device,
-    class_names: List[str],
-    path_to_model: pathlib.PosixPath,
-    args: argparse.Namespace
+    model: torch.nn.Module, device: torch.device, class_names: List[str], path_to_model: pathlib.PosixPath, args: argparse.Namespace
 ) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
@@ -1437,9 +1360,7 @@ def run_get_model_for_inference(
     Returns:
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
-    loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names, args
-    )
+    loaded_model_for_inference = load_model_for_inference(path_to_model, device, class_names, args)
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
 
@@ -1469,15 +1390,13 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
-def load_model_for_inference(
-    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
-) -> nn.Module:
+def load_model_for_inference(save_path: str, device: str, class_names: List[str], args: argparse.Namespace) -> nn.Module:
     model = create_effnetb0_model(device, class_names, args)
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
     # Get the model size in bytes then convert to megabytes
-    model_size = Path(save_path).stat().st_size // (1024*1024)
+    model_size = Path(save_path).stat().st_size // (1024 * 1024)
     print(f"EfficientNetB2 feature extractor model size: {model_size} MB")
 
     # get_model_summary(model)
@@ -1508,9 +1427,7 @@ def plot_image_with_predicted_label(
 
     plt.figure()
     plt.imshow(img)
-    plt.title(
-        f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}"
-    )
+    plt.title(f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}")
     plt.axis(False)
 
     if to_disk:
@@ -1542,9 +1459,7 @@ def validate_seed(seed: int):
     device = "cpu"
     cpu_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
     cpu_tensor.requires_grad = True
-    cpu_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
-        device
-    )  # Change this line
+    cpu_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(device)  # Change this line
 
     with torch.no_grad():
         cpu_tensor.add_(-coeff * cpu_tensor.grad)
@@ -1553,9 +1468,7 @@ def validate_seed(seed: int):
         device = "mps"
         mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
         mps_tensor.requires_grad = True
-        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
-            device
-        )  # Change this line
+        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(device)  # Change this line
 
         with torch.no_grad():
             mps_tensor.add_(-coeff * mps_tensor.grad)
@@ -1565,11 +1478,7 @@ def validate_seed(seed: int):
 
 def info(args, dataset_root_dir=""):
     platform.platform()
-    print(
-        watermark(
-            packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
-        )
-    )
+    print(watermark(packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"))
     devices.mps_check()
     validate_seed(args.seed)
     walk_through_dir(dataset_root_dir)
@@ -1625,9 +1534,7 @@ def print_train_time(start, end, device=None, machine=None):
     """
     total_time = end - start
     if device:
-        print(
-            f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n"
-        )
+        print(f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n")
     else:
         print(f"\nTrain time: {total_time:.3f} seconds\n")
     return round(total_time, 3)
