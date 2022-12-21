@@ -1667,17 +1667,18 @@ def validate_seed(seed: int):
     with torch.no_grad():
         cpu_tensor.add_(-coeff * cpu_tensor.grad)
 
-    device = "mps"
-    mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
-    mps_tensor.requires_grad = True
-    mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
-        device
-    )  # Change this line
+    if torch.backends.mps.is_available():
+        device = "mps"
+        mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
+        mps_tensor.requires_grad = True
+        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+            device
+        )  # Change this line
 
-    with torch.no_grad():
-        mps_tensor.add_(-coeff * mps_tensor.grad)
+        with torch.no_grad():
+            mps_tensor.add_(-coeff * mps_tensor.grad)
 
-    print(cpu_tensor.detach().cpu().numpy() - mps_tensor.detach().cpu().numpy())
+        print(cpu_tensor.detach().cpu().numpy() - mps_tensor.detach().cpu().numpy())
 
 
 def info(args, dataset_root_dir=""):
