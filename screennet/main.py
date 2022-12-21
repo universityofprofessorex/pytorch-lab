@@ -306,7 +306,7 @@ def run_train(
     batch_size: int
 ):
     print("No other options selected so we are training this model....")
-    ic(model)
+    # ic(model)
     ic(train_dataloader)
     ic(test_dataloader)
     ic(loss_fn)
@@ -1605,7 +1605,7 @@ def load_model_for_inference(
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
-    get_model_summary(model)
+    # get_model_summary(model)
     return model
 
 
