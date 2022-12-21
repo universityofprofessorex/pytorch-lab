@@ -12,7 +12,7 @@ import pathlib
 
 extra_modules_path_api = pathlib.Path("../going_modular")
 extra_modules_path = os.path.abspath(str(extra_modules_path_api))
-print(extra_modules_path)
+# print(extra_modules_path)
 
 # sys.path.insert(1, extra_modules_path)
 sys.path.append(extra_modules_path)
@@ -35,8 +35,8 @@ assert int(torch.__version__.split(".")[1]) >= 12, "torch version should be 1.12
 assert (
     int(torchvision.__version__.split(".")[1]) >= 13
 ), "torchvision version should be 0.13+"
-print(f"torch version: {torch.__version__}")
-print(f"torchvision version: {torchvision.__version__}")
+# print(f"torch version: {torch.__version__}")
+# print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
 
 # Continue with regular imports
@@ -56,17 +56,13 @@ from going_modular import data_setup, engine
 
 import torchmetrics, mlxtend
 
-print(f"mlxtend version: {mlxtend.__version__}")
+# print(f"mlxtend version: {mlxtend.__version__}")
 assert (
     int(mlxtend.__version__.split(".")[1]) >= 19
 ), "mlxtend verison should be 0.19.0 or higher"
 
 # Import accuracy metric
 from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
-
-# # Setup device agnostic code
-# device = "cuda" if torch.cuda.is_available() else "cpu"
-# device
 
 import argparse
 import os
