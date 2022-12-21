@@ -882,7 +882,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     else:
 
         # Setup path to data folder
-        data_path = Path(args.data) / "twitter_facebook_tiktok"
+        data_path = Path(args.data)
         image_path = data_path / "twitter_facebook_tiktok"
         train_dir = image_path / "train"
         test_dir = image_path / "test"
