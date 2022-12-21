@@ -130,3 +130,4 @@ dmypy.json
 raw_dataset
 .vscode
 environment.yml
+screennet/runs

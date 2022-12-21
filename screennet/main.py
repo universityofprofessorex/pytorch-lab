@@ -62,7 +62,7 @@ assert (
 # ---------------------------------------------------------------------------
 
 # breakpoint()
-from going_modular import data_setup, engine  # pylint: disable=no-name-in-module
+from going_modular import data_setup, engine, utils  # pylint: disable=no-name-in-module
 
 # Continue with regular imports
 import matplotlib.pyplot as plt
@@ -127,6 +127,51 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
 from watermark import watermark
+
+from torch.utils.tensorboard import SummaryWriter
+
+
+def create_writer(
+    experiment_name: str, model_name: str, extra: str = None
+) -> SummaryWriter:
+    """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
+
+    log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
+
+    Where timestamp is the current date in YYYY-MM-DD format.
+
+    Args:
+        experiment_name (str): Name of experiment.
+        model_name (str): Name of model.
+        extra (str, optional): Anything extra to add to the directory. Defaults to None.
+
+    Returns:
+        torch.utils.tensorboard.writer.SummaryWriter(): Instance of a writer saving to log_dir.
+
+    Example usage:
+        # Create a writer saving to "runs/2022-06-04/data_10_percent/effnetb2/5_epochs/"
+        writer = create_writer(experiment_name="data_10_percent",
+                               model_name="effnetb2",
+                               extra="5_epochs")
+        # The above is the same as:
+        writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
+    """
+    from datetime import datetime
+    import os
+
+    # Get timestamp of current date (all experiments on certain day live in same folder)
+    timestamp = datetime.now().strftime(
+        "%Y-%m-%d"
+    )  # returns current date in YYYY-MM-DD format
+
+    if extra:
+        # Create log directory path
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+
+    print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
+    return SummaryWriter(log_dir=log_dir)
 
 
 def download_and_predict(
@@ -316,6 +361,15 @@ def run_train(
     ic(device)
 
     start_time = timer()
+
+    # # Create an example writer
+    # example_writer = create_writer(
+    #     experiment_name="basic", model_name="effnetb0", extra="5_epochs"
+    # )
+
+    dataloader_name = "basic"
+    ic(dataloader_name)
+
     # Setup training and save the results
     results = engine.train(
         model=model,
@@ -325,6 +379,9 @@ def run_train(
         loss_fn=loss_fn,
         epochs=epochs,
         device=device,
+        writer=create_writer(experiment_name=dataloader_name,
+                                       model_name=model.name,
+                                       extra=f"{epochs}_epochs")
     )
 
     # End the timer and print out how long it took
@@ -334,6 +391,13 @@ def run_train(
     total_train_time = print_train_time(
         start=start_time, end=end_time, device=device, machine="silicontop"
     )
+
+    # 10. Save the model to file so we can get back the best model
+    save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+    utils.save_model(model=model,
+               target_dir="models",
+               model_name=save_filepath)
+    print("-"*50 + "\n")
 
     dataset_name = "twitter_facebook_tiktok"
 
@@ -536,7 +600,9 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
 
 # boss: use this to instantiate a new model class with all the proper setup as before
-def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Module:
+def create_effnetb0_model(
+    device: str, class_names: List[str], args: argparse.Namespace
+) -> torch.nn.Module:
     """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
 
     Args:
@@ -547,9 +613,10 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
         _type_: _description_
     """
     # NEW: Setup the model with pretrained weights and send it to the target device (torchvision v0.13+)
-    weights = (
-        torchvision.models.EfficientNet_B0_Weights.DEFAULT
-    )  # .DEFAULT = best available weights
+    weights = models.__dict__[args.model_weights].DEFAULT
+    # weights = (
+    #     torchvision.models.EfficientNet_B0_Weights.DEFAULT
+    # )  # .DEFAULT = best available weights
     model = torchvision.models.efficientnet_b0(weights=weights).to(device)
 
     # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
@@ -557,8 +624,7 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
         param.requires_grad = False
 
     # Set the manual seeds
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
+    validate_seed(args.seed)
 
     # Get the length of class_names (one output unit for each class)
     output_shape = len(class_names)
@@ -572,6 +638,10 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
             bias=True,
         ),
     ).to(device)
+
+    # 5. Give the model a name
+    model.name = "effnetb0"
+    print(f"[INFO] Created new {model.name} model.")
 
     return model
 
@@ -843,12 +913,14 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         weights = models.__dict__[args.model_weights].DEFAULT
         auto_transforms = weights.transforms()
         model = models.__dict__[args.arch](weights=weights).to(device)
+        model.name = args.arch
     else:
         ic("=> creating model '{}'".format(args.arch))
         # breakpoint()
         # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
         # auto_transforms = weights.transforms()
         model = models.__dict__[args.arch]()
+        model.name = args.arch
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         ic("using CPU, this will be slow")
@@ -1106,7 +1178,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     path_to_model = save_model_to_disk("ScreenNetV1", model)
 
     loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names, path_to_model
+        model, device, class_names, path_to_model, args
     )
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
@@ -1571,6 +1643,7 @@ def run_get_model_for_inference(
     device: torch.device,
     class_names: List[str],
     path_to_model: pathlib.PosixPath,
+    args: argparse.Namespace
 ) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
@@ -1583,7 +1656,7 @@ def run_get_model_for_inference(
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
     loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names
+        path_to_model, device, class_names, args
     )
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
@@ -1615,12 +1688,16 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 def load_model_for_inference(
-    save_path: str, device: str, class_names: List[str]
+    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
 ) -> nn.Module:
-    model = setup_efficientnet_model(device, class_names)
+    model = create_effnetb0_model(device, class_names, args)
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
+    # Get the model size in bytes then convert to megabytes
+    model_size = Path(save_path).stat().st_size // (1024*1024)
+    print(f"EfficientNetB2 feature extractor model size: {model_size} MB")
+
     # get_model_summary(model)
     return model
 

@@ -35,7 +35,7 @@ dependencies:
   - pudb=2019.2
   - py-opencv=4.6
   - scipy=1.9
-  - tensorboard=2.10
+  - tensorboard=2.11.0
   - transformers=4.23
   - matplotlib=3.6.2
   - scikit-image
@@ -74,5 +74,6 @@ dependencies:
       - pyfiglet
       - pynguin
       - memray
+      - torch-tb-profiler
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1
