@@ -51,6 +51,7 @@ dependencies:
       - icecream
       - black
       - pylint
+      - isort
       - autopep8
       - autoflake
       - pdbpp
@@ -65,5 +66,9 @@ dependencies:
       - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
       - viztracer
       - pdbr
+      - pytype
+      - pyannotate
+      - prospector[with_vulture,with_mypy,with_bandit]
+      - py-spy
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

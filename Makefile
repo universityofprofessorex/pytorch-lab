@@ -3,7 +3,8 @@ link-conda-env:
 
 conda-update:
 	conda env update
-	
+	pip freeze > installed.txt
+
 conda-activate:
 	pyenv activate anaconda3-2022.05
 	conda activate pytorch-lab3

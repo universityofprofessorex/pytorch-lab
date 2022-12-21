@@ -12,3 +12,12 @@ black:
 
 isort:
 	isort --atomic .
+
+pytype:
+	pytype *
+
+py-spy:
+	py-spy record -o profile.svg -- python main.py
+
+py-spy-top:
+	py-spy top -- python main.py
