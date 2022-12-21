@@ -16,6 +16,7 @@ import pathlib
 import sys
 
 import bpdb
+import platform
 
 extra_modules_path_api = pathlib.Path("../going_modular")
 extra_modules_path = os.path.abspath(str(extra_modules_path_api))
@@ -117,6 +118,7 @@ from torchmetrics import ConfusionMatrix
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+from watermark import watermark
 
 
 def download_and_predict(
@@ -163,11 +165,11 @@ def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str], to_di
         # for high-accuracy models better
     )
 
-    plt.show()
-
     if to_disk:
         ic("Writing confusion matrix to disk ...")
-        plt.savefig(fname)
+        ic(plt.savefig(fname))
+    else:
+        plt.show()
 
 
 def compute_accuracy(
@@ -561,6 +563,12 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
+    "--info",
+    dest="info",
+    action="store_true",
+    help="info about this build",
+)
+parser.add_argument(
     "--download-and-predict",
     default="",
     type=str,
@@ -902,6 +910,10 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     ic(next(model.parameters()).device)
 
+    if args.info:
+        info()
+        return
+
     if args.summary:
         print(" Running model summary ...")
         get_model_summary(
@@ -917,27 +929,14 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             col_width=20,
             row_settings=["var_names"],
         )
+
+        get_model_named_params(model)
+
         return
 
     if args.evaluate:
         # validate(val_loader, model, criterion, args)
         ic(run_validate(model, test_dataloader, device, criterion))
-        # print(" Running in evaluate mode ...")
-
-        # start_time = timer()
-        # # Setup testing and save the results
-        # test_loss, test_acc = engine.test_step(
-        #     model=model,
-        #     dataloader=test_dataloader,
-        #     loss_fn=criterion,
-        #     device=device
-        # )
-
-        # # End the timer and print out how long it took
-        # end_time = timer()
-        # print(f"[INFO] Total testing time: {end_time-start_time:.3f} seconds")
-        # ic(test_loss)
-        # ic(test_acc)
         return
 
     if args.download_and_predict:
@@ -953,12 +952,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.predict:
         print(" Running predict command ...")
-        # pred_and_plot_image(model: torch.nn.Module,
-        #                 image_path: str,
-        #                 class_names: List[str],
-        #                 image_size: Tuple[int, int] = (224, 224),
-        #                 transform: torchvision.transforms = None,
-        #                 device: torch.device=device)
         ic(
             pred_and_plot_image(
                 model,
@@ -1409,7 +1402,7 @@ def pred_and_plot_image(
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
 
     # 10. Plot image with predicted label and probability
-    plot_image_with_predicted_label(to_disk=True, img=img, target_image_pred_label=target_image_pred_label, target_image_pred_probs=target_image_pred_probs, class_names=class_names, fname=f"{image_path}.plot.png")
+    plot_image_with_predicted_label(to_disk=True, img=img, target_image_pred_label=target_image_pred_label, target_image_pred_probs=target_image_pred_probs, class_names=class_names, fname=f"example.png")
 
 
 # wrapper function of common code
@@ -1446,7 +1439,7 @@ def run_get_model_for_inference(
     loaded_model_for_inference = load_model_for_inference(
         path_to_model, device, class_names
     )
-    rich.inspect(loaded_model_for_inference, all=True)
+    # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
 
 
@@ -1509,7 +1502,48 @@ def plot_image_with_predicted_label(to_disk: bool = True, img: Image = None, tar
     plt.axis(False)
 
     if to_disk:
-        plt.savefig(fname)
+        plt.imsave(fname, img)
+        # ic(plt.savefig(fname))
+
+def info():
+    platform.platform()
+    print(watermark(packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"))
+    devices.mps_check()
+    sys.exit(0)
+
+#func to save model checkpoint
+# SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
+def save_checkpoint(state, filename="saved_checkpoint.pth.tar"):
+    print("=> Saving checkpoint")
+    torch.save(state, filename)
+
+#func to load model checkpoint
+# SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
+def load_checkpoint(checkpoint, model):
+    print("=> Loading checkpoint")
+    model.load_state_dict(checkpoint["state_dict"])
+
+# #function to save prediction as an image
+# # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
+# def save_predictions_as_imgs(
+#     loader, model, folder="saved_images/", device="mps"
+# ):
+#     model.eval()
+#     for idx, (x, y) in enumerate(loader):
+#         x = x.to(device=device)
+#         with torch.no_grad():
+#             preds = torch.sigmoid(model(x))
+#             preds = (preds > 0.5).float()
+#         torchvision.utils.save_image(
+#             preds, f"{folder}/pred_{idx}.png"
+#         )
+#         torchvision.utils.save_image(y.unsqueeze(1), f"{folder}{idx}.png")
+
+#     model.train()
+
+def get_model_named_params(model: torch.nn.Module):
+    for name, param in model.named_parameters():
+        print(name, ':', param.requires_grad)
 
 if __name__ == "__main__":
     import traceback

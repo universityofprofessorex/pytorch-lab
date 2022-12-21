@@ -7,13 +7,13 @@ channels:
 dependencies:
   - python=3.10
   - pip>=22.2
-  - pytorch=1.12
+  - pytorch=1.13.1
   - pytorch-lightning=1.7
-  - torchvision=0.13
-  - torchmetrics=0.10
+  - torchvision
+  - torchmetrics
   - torch-fidelity=0.3
-  - torchtext=0.13
-  - torchvision=0.13
+  - torchtext
+  - torchvision
   - fastai=2.7.10
 
   # I suggest to keep the other deps sorted for convenience.
@@ -70,5 +70,6 @@ dependencies:
       - pyannotate
       - prospector[with_vulture,with_mypy,with_bandit]
       - py-spy
+      - watermark
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1
