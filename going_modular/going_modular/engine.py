@@ -6,7 +6,12 @@ import torch
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 from icecream import ic
+import pyfiglet
+from rich import print
 
+def display_ascii_text(txt: str, font: str = "stop"):
+    title = pyfiglet.figlet_format(txt, font=font)
+    print(f'[magenta]{title}[/magenta]')
 
 def train_step(
     model: torch.nn.Module,
@@ -34,6 +39,7 @@ def train_step(
 
     (0.1112, 0.8743)
     """
+    display_ascii_text("train_step")
     # Put model in train mode
     model.train()
 
@@ -94,6 +100,7 @@ def test_step(
 
     (0.0223, 0.8985)
     """
+    display_ascii_text("test_step")
     # Put model in eval mode
     model.eval()
 
@@ -164,6 +171,8 @@ def train(
               test_loss: [1.2641, 1.5706],
               test_acc: [0.3400, 0.2973]}
     """
+
+    display_ascii_text("train")
 
     ic(model)
     ic(train_dataloader)

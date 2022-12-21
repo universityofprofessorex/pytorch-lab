@@ -71,5 +71,6 @@ dependencies:
       - prospector[with_vulture,with_mypy,with_bandit]
       - py-spy
       - watermark
+      - pyfiglet
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1
