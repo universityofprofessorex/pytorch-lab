@@ -138,20 +138,24 @@ def mps_check():
     # Check that MPS is available
     if not torch.backends.mps.is_available():
         if not torch.backends.mps.is_built():
-            print("MPS not available because the current PyTorch install was not "
-                  "built with MPS enabled.")
+            print(
+                "MPS not available because the current PyTorch install was not "
+                "built with MPS enabled."
+            )
         else:
-            print("MPS not available because the current MacOS version is not 12.3+ "
-                  "and/or you do not have an MPS-enabled device on this machine.")
+            print(
+                "MPS not available because the current MacOS version is not 12.3+ "
+                "and/or you do not have an MPS-enabled device on this machine."
+            )
 
     else:
         ic(torch.has_mps)
         if torch.backends.mps.is_available():
             mps_device = torch.device("mps")
             x = torch.ones(1, device=mps_device)
-            print (x)
+            print(x)
         else:
-            print ("MPS device not found.")
+            print("MPS device not found.")
 
         mps_device = torch.device("mps")
 
@@ -162,3 +166,19 @@ def mps_check():
 
         # Any operation happens on the GPU
         y = x * 2
+
+
+# SOURCE: https://github.com/pytorch/pytorch/issues/77988
+def seed_everything(seed: int):
+    # Ref: https://gist.github.com/ihoromi4/b681a9088f348942b01711f251e5f964
+    import random, os
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True

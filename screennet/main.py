@@ -94,7 +94,10 @@ from typing import List, Tuple
 from PIL import Image
 
 # Import accuracy metric
-from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
+from helper_functions import (
+    accuracy_fn,
+    plot_loss_curves,
+)  # Note: could also use torchmetrics.Accuracy()
 import matplotlib
 from mlxtend.plotting import plot_confusion_matrix
 import numpy as np
@@ -155,7 +158,13 @@ def download_and_predict(
         device=device,
     )
 
-def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str], to_disk: bool = True, fname: str = "plot.png"):
+
+def show_confusion_matrix_helper(
+    cmat: np.ndarray,
+    class_names: List[str],
+    to_disk: bool = True,
+    fname: str = "plot.png",
+):
     # boss: function via https://colab.research.google.com/github/mrdbourke/pytorch-deep-learning/blob/main/03_pytorch_computer_vision.ipynb#scrollTo=7aed6d76-ad1c-429e-b8e0-c80572e3ebf4
     fig, ax = plot_confusion_matrix(
         conf_mat=cmat,
@@ -281,6 +290,7 @@ def run_validate(
     ic(test_loss)
     ic(test_acc)
 
+
 def run_train(
     model: torch.nn.Module,
     train_dataloader: torch.utils.data.DataLoader,
@@ -291,6 +301,13 @@ def run_train(
     device: torch.device,
 ):
     print("No other options selected so we are training this model....")
+    ic(model)
+    ic(train_dataloader)
+    ic(test_dataloader)
+    ic(loss_fn)
+    ic(optimizer)
+    ic(epochs)
+    ic(device)
 
     start_time = timer()
     # Setup training and save the results
@@ -300,7 +317,7 @@ def run_train(
         test_dataloader=test_dataloader,
         optimizer=optimizer,
         loss_fn=loss_fn,
-        epochs=5,
+        epochs=epochs,
         device=device,
     )
 
@@ -308,7 +325,8 @@ def run_train(
     end_time = timer()
     print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
 
-
+    ic("Plot the loss curves of our model")
+    plot_loss_curves(results, to_disk=True)
 
 
 def print_train_time(start: float, end: float, device: torch.device = None):
@@ -629,8 +647,9 @@ def main():
     # rich.inspect(args)
 
     if args.seed is not None:
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
+        validate_seed(args.seed)
+        # random.seed(args.seed)
+        # torch.manual_seed(args.seed)
         # cudnn.deterministic = True
         # cudnn.benchmark = False
         # warnings.warn(
@@ -728,9 +747,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 )
                 ic(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
             else:
-                ic(
-                    "Attempting to use single gpu device with DistributedDataParallel"
-                )
+                ic("Attempting to use single gpu device with DistributedDataParallel")
                 model.cuda()
                 # DistributedDataParallel will divide and allocate batch_size to all
                 # available GPUs if device_ids are not set
@@ -764,7 +781,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # define loss function (criterion), optimizer, and learning rate scheduler
     # criterion = nn.CrossEntropyLoss().to(device)
     # Define loss and optimizer
-    criterion = loss_fn = nn.CrossEntropyLoss().to(device)
+    loss_fn = nn.CrossEntropyLoss().to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -820,6 +837,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             test_dir=test_dir,
             transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
             batch_size=args.batch_size,
+            pin_memory=True,
         )  # set mini-batch size to 32
 
         # get datasets for confusion matrix
@@ -888,8 +906,8 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     #     sampler=val_sampler,
     # )
 
-    train_loader = train_dataloader
-    val_loader = test_dataloader
+    # train_loader = train_dataloader
+    # val_loader = test_dataloader
 
     # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
     for param in model.features.parameters():
@@ -911,7 +929,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     ic(next(model.parameters()).device)
 
     if args.info:
-        info()
+        info(args, dataset_root_dir=image_path)
         return
 
     if args.summary:
@@ -936,7 +954,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.evaluate:
         # validate(val_loader, model, criterion, args)
-        ic(run_validate(model, test_dataloader, device, criterion))
+        ic(run_validate(model, test_dataloader, device, loss_fn))
         return
 
     if args.download_and_predict:
@@ -965,7 +983,17 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # validate(val_loader, model, criterion, args)
         return
 
-    ic(run_train(model, train_dataloader, test_dataloader, criterion, optimizer, args.epochs, device))
+    ic(
+        run_train(
+            model,
+            train_dataloader,
+            test_dataloader,
+            loss_fn,
+            optimizer,
+            args.epochs,
+            device,
+        )
+    )
     print("No other options selected so we are training this model....")
 
     path_to_model = save_model_to_disk("ScreenNetV1", model)
@@ -975,7 +1003,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     )
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
-    show_confusion_matrix_helper(cmat, class_names, to_disk=True, fname="confusion-matrix.png")
+    show_confusion_matrix_helper(
+        cmat, class_names, to_disk=True, fname="confusion-matrix.png"
+    )
 
     # for epoch in range(args.start_epoch, args.epochs):
     #     if args.distributed:
@@ -1402,13 +1432,18 @@ def pred_and_plot_image(
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
 
     # 10. Plot image with predicted label and probability
-    plot_image_with_predicted_label(to_disk=True, img=img, target_image_pred_label=target_image_pred_label, target_image_pred_probs=target_image_pred_probs, class_names=class_names, fname=f"example.png")
+    plot_image_with_predicted_label(
+        to_disk=True,
+        img=img,
+        target_image_pred_label=target_image_pred_label,
+        target_image_pred_probs=target_image_pred_probs,
+        class_names=class_names,
+        fname=f"example.png",
+    )
 
 
 # wrapper function of common code
-def run_save_model_for_inference(
-    model: torch.nn.Module
-) -> Tuple[pathlib.PosixPath]:
+def run_save_model_for_inference(model: torch.nn.Module) -> Tuple[pathlib.PosixPath]:
     """Save model to disk
 
     Args:
@@ -1422,9 +1457,13 @@ def run_save_model_for_inference(
     ic(path_to_model)
     return path_to_model
 
+
 # wrapper function of common code
 def run_get_model_for_inference(
-    model: torch.nn.Module, device: torch.device, class_names: List[str], path_to_model: pathlib.PosixPath
+    model: torch.nn.Module,
+    device: torch.device,
+    class_names: List[str],
+    path_to_model: pathlib.PosixPath,
 ) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
@@ -1441,7 +1480,6 @@ def run_get_model_for_inference(
     )
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
-
 
 
 # SOURCE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
@@ -1489,7 +1527,15 @@ def load_model_from_disk(save_path: str, empty_model: nn.Module) -> nn.Module:
     print("Model loaded from path {} successfully.".format(save_path))
     return empty_model
 
-def plot_image_with_predicted_label(to_disk: bool = True, img: Image = None, target_image_pred_label: torch.Tensor = None, target_image_pred_probs: torch.Tensor = None, class_names: List[str] = None, fname: str = "plot.png"):
+
+def plot_image_with_predicted_label(
+    to_disk: bool = True,
+    img: Image = None,
+    target_image_pred_label: torch.Tensor = None,
+    target_image_pred_probs: torch.Tensor = None,
+    class_names: List[str] = None,
+    fname: str = "plot.png",
+):
     # 10. Plot image with predicted label and probability
     if not to_disk:
         plt.ion()
@@ -1505,23 +1551,70 @@ def plot_image_with_predicted_label(to_disk: bool = True, img: Image = None, tar
         plt.imsave(fname, img)
         # ic(plt.savefig(fname))
 
-def info():
+
+def validate_seed(seed: int):
+    ic(seed, type(seed))
+    devices.seed_everything(seed)
+
+    # Nevermind, the unexpected behaviour is from cpu not mps. I was using from_numpy which the document indicate it will create a tensor buffer that shared memory space (I didn't catch this at first). This shared memory space seems to only be valid for cpu version, and nor mps version
+
+    # I tried switching cpu, and mps order around without using copy(), and got expected result, but the base_tensor value is modified after cpu computation. So in my conclusion, using copy() with from_numpy is needed to have consistent behaviour on both cpu, and mps
+
+    # https://github.com/pytorch/pytorch/issues/77988
+    # Test seed set correctly
+    coeff = 0.5
+    base_tensor = np.random.rand(100, 100).astype(np.float32)
+    grad_tensor = np.random.rand(100, 100).astype(np.float32)
+
+    device = "cpu"
+    cpu_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
+    cpu_tensor.requires_grad = True
+    cpu_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+        device
+    )  # Change this line
+
+    with torch.no_grad():
+        cpu_tensor.add_(-coeff * cpu_tensor.grad)
+
+    device = "mps"
+    mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
+    mps_tensor.requires_grad = True
+    mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+        device
+    )  # Change this line
+
+    with torch.no_grad():
+        mps_tensor.add_(-coeff * mps_tensor.grad)
+
+    print(cpu_tensor.detach().cpu().numpy() - mps_tensor.detach().cpu().numpy())
+
+
+def info(args, dataset_root_dir=""):
     platform.platform()
-    print(watermark(packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"))
+    print(
+        watermark(
+            packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
+        )
+    )
     devices.mps_check()
+    validate_seed(args.seed)
+    walk_through_dir(dataset_root_dir)
     sys.exit(0)
 
-#func to save model checkpoint
+
+# func to save model checkpoint
 # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
 def save_checkpoint(state, filename="saved_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
-#func to load model checkpoint
+
+# func to load model checkpoint
 # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
 def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
+
 
 # #function to save prediction as an image
 # # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
@@ -1541,9 +1634,11 @@ def load_checkpoint(checkpoint, model):
 
 #     model.train()
 
+
 def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
-        print(name, ':', param.requires_grad)
+        print(name, ":", param.requires_grad)
+
 
 if __name__ == "__main__":
     import traceback
