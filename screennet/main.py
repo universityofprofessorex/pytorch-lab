@@ -5,17 +5,17 @@
 # import pdb
 # pdb = pdb.pdb
 
-import bpdb
-
+import os
+import os.path
+import pathlib
 
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
 # %load_ext rich
 # %matplotlib inline
 import sys
-import os
-import os.path
-import pathlib
+
+import bpdb
 
 extra_modules_path_api = pathlib.Path("../going_modular")
 extra_modules_path = os.path.abspath(str(extra_modules_path_api))
@@ -24,25 +24,28 @@ extra_modules_path = os.path.abspath(str(extra_modules_path_api))
 # sys.path.insert(1, extra_modules_path)
 sys.path.append(extra_modules_path)
 sys.path.append("../")
-import rich
-from rich import inspect, print
-from rich.console import Console
-
-# from rich.traceback import install
-# install(show_locals=True)
-from icecream import ic
 # import better_exceptions
-import better_exceptions; better_exceptions.hook()
-import devices
-
-# console = Console()
-# ---------------------------------------------------------------------------
-
+import better_exceptions
+import rich
 
 # ---------------------------------------------------------------------------
 import torch
 import torchvision
+
+# from rich.traceback import install
+# install(show_locals=True)
+from icecream import ic
+from rich import inspect, print
+from rich.console import Console
 from torchvision import datasets, transforms
+
+import devices
+
+better_exceptions.hook()
+
+# console = Console()
+# ---------------------------------------------------------------------------
+
 
 assert int(torch.__version__.split(".")[1]) >= 12, "torch version should be 1.12+"
 assert (
@@ -54,28 +57,24 @@ assert (
 
 # Continue with regular imports
 import matplotlib.pyplot as plt
+import mlxtend
 import torch
+import torchmetrics
 import torchvision
 
+# breakpoint()
+from going_modular import data_setup, engine
 from torch import nn
+from torchinfo import summary
 from torchvision import transforms
 
 # Try to get torchinfo, install it if it doesn't work
 
-from torchinfo import summary
-
-# breakpoint()
-from going_modular import data_setup, engine
-
-import torchmetrics, mlxtend
 
 # print(f"mlxtend version: {mlxtend.__version__}")
 assert (
     int(mlxtend.__version__.split(".")[1]) >= 19
 ), "mlxtend verison should be 0.19.0 or higher"
-
-# Import accuracy metric
-from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
 
 import argparse
 import os
@@ -83,14 +82,26 @@ import random
 import shutil
 import time
 import warnings
-
+import zipfile
 from enum import Enum
+from itertools import product
+from pathlib import Path
+from timeit import default_timer as timer
+from typing import List, Tuple
+from urllib.parse import unquote, urlparse
 
+import matplotlib
+import numpy as np
+import numpy.typing as npt
+import requests
+
+# SOURCE: https://github.com/rasbt/deeplearning-models/blob/35aba5dc03c43bc29af5304ac248fc956e1361bf/pytorch_ipynb/helper_evaluate.py
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
@@ -98,17 +109,147 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+
+# Import accuracy metric
+from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
+from mlxtend.plotting import plot_confusion_matrix
+from PIL import Image
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
+from torchmetrics import ConfusionMatrix
 
-from timeit import default_timer as timer
-from pathlib import Path
-import shutil
-import requests
-import zipfile
-from pathlib import Path
-from typing import List, Tuple
-from PIL import Image
+
+def download_and_predict(
+    url: str,
+    model: torch.nn.Module,
+    data_path: pathlib.PosixPath,
+    class_names: List[str],
+):
+    # Download custom image
+    urlparse(url).path
+    fname = Path(urlparse(url).path).name
+
+    # Setup custom image path
+    custom_image_path = data_path / fname
+
+    print(f"fname: {custom_image_path}")
+
+    # Download the image if it doesn't already exist
+    if not custom_image_path.is_file():
+        with open(custom_image_path, "wb") as f:
+            # When downloading from GitHub, need to use the "raw" file link
+            request = requests.get(url)
+            print(f"Downloading {custom_image_path}...")
+            f.write(request.content)
+    else:
+        print(f"{custom_image_path} already exists, skipping download.")
+
+    # Predict on custom image
+    pred_and_plot_image(
+        model=model, image_path=custom_image_path, class_names=class_names
+    )
+
+
+def show_confusion_matrix_helper(cmat: np.ndarray, class_names: List[str]):
+    # boss: function via https://colab.research.google.com/github/mrdbourke/pytorch-deep-learning/blob/main/03_pytorch_computer_vision.ipynb#scrollTo=7aed6d76-ad1c-429e-b8e0-c80572e3ebf4
+    fig, ax = plot_confusion_matrix(
+        conf_mat=cmat,
+        class_names=class_names,
+        norm_colormap=matplotlib.colors.LogNorm()
+        # normed colormaps highlight the off-diagonals
+        # for high-accuracy models better
+    )
+
+    plt.show()
+
+
+def compute_accuracy(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
+):
+    model.eval()
+    with torch.no_grad():
+        correct_pred, num_examples = 0, 0
+        for i, (features, targets) in enumerate(data_loader):
+
+            features = features.to(device)
+            targets = targets.to(device)
+
+            logits = model(features)
+            if isinstance(logits, torch.distributed.rpc.api.RRef):
+                logits = logits.local_value()
+            _, predicted_labels = torch.max(logits, 1)
+            num_examples += targets.size(0)
+            correct_pred += (predicted_labels == targets).sum()
+    return correct_pred.float() / num_examples * 100
+
+
+def compute_epoch_loss(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
+):
+    model.eval()
+    curr_loss, num_examples = 0.0, 0
+    with torch.no_grad():
+        for features, targets in data_loader:
+            features = features.to(device)
+            targets = targets.to(device)
+            logits = model(features)
+            if isinstance(logits, torch.distributed.rpc.api.RRef):
+                logits = logits.local_value()
+            loss = F.cross_entropy(logits, targets, reduction="sum")
+            num_examples += targets.size(0)
+            curr_loss += loss
+
+        curr_loss = curr_loss / num_examples
+        return curr_loss
+
+
+def compute_confusion_matrix(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device
+):
+
+    all_targets, all_predictions = [], []
+    with torch.no_grad():
+
+        for i, (features, targets) in enumerate(data_loader):
+
+            features = features.to(device)
+            targets = targets
+            logits = model(features)
+            _, predicted_labels = torch.max(logits, 1)
+            all_targets.extend(targets.to("cpu"))
+            all_predictions.extend(predicted_labels.to("cpu"))
+
+    all_predictions = all_predictions
+    all_predictions = np.array(all_predictions)
+    all_targets = np.array(all_targets)
+
+    class_labels = np.unique(np.concatenate((all_targets, all_predictions)))
+    if class_labels.shape[0] == 1:
+        if class_labels[0] != 0:
+            class_labels = np.array([0, class_labels[0]])
+        else:
+            class_labels = np.array([class_labels[0], 1])
+    n_labels = class_labels.shape[0]
+    lst = []
+    z = list(zip(all_targets, all_predictions))
+    for combi in product(class_labels, repeat=2):
+        lst.append(z.count(combi))
+    mat = np.asarray(lst)[:, None].reshape(n_labels, n_labels)
+    return mat
+
+
+def run_confusion_matrix(
+    model: torch.nn.Module,
+    test_dataloader: torch.utils.data.DataLoader,
+    device: torch.device,
+    class_names: List[str],
+):
+
+    cmat = compute_confusion_matrix(model, test_dataloader, device)
+
+    cmat, type(cmat)
+
+    show_confusion_matrix_helper(cmat, class_names)
 
 
 def print_train_time(start: float, end: float, device: torch.device = None):
@@ -363,7 +504,18 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--pretrained", dest="pretrained", action="store_true", default=True, help="use pre-trained model"
+    "--download-and-predict",
+    default="",
+    type=str,
+    metavar="DOWNLOAD_PREDICT_PATH",
+    help="url to image to run prediction on (default: none)",
+)
+parser.add_argument(
+    "--pretrained",
+    dest="pretrained",
+    action="store_true",
+    default=True,
+    help="use pre-trained model",
 )
 parser.add_argument(
     "--world-size",
@@ -445,7 +597,7 @@ def main():
         main_worker(args.gpu, ngpus_per_node, args)
 
 
-def main_worker(gpu, ngpus_per_node, args):
+def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     global best_acc1
     args.gpu = gpu
 
@@ -537,19 +689,10 @@ def main_worker(gpu, ngpus_per_node, args):
         device = torch.device("cpu")
     # define loss function (criterion), optimizer, and learning rate scheduler
     # criterion = nn.CrossEntropyLoss().to(device)
+    # Define loss and optimizer
     criterion = loss_fn = nn.CrossEntropyLoss().to(device)
 
-    # optimizer = torch.optim.SGD(
-    #     model.parameters(),
-    #     args.lr,
-    #     momentum=args.momentum,
-    #     weight_decay=args.weight_decay,
-    # )
-
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    # scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -593,6 +736,10 @@ def main_worker(gpu, ngpus_per_node, args):
         image_path = data_path / "twitter_facebook_tiktok"
         train_dir = image_path / "train"
         test_dir = image_path / "test"
+
+        train_dataloader: torch.utils.data.DataLoader
+        test_dataloader: torch.utils.data.DataLoader
+        class_names: List[str]
 
         train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
             train_dir=train_dir,
@@ -707,6 +854,12 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args)
         return
 
+    if args.download_and_predict:
+        download_and_predict(
+            args.download_and_predict, model, Path(args.data), class_names=class_names
+        )
+        return
+
     if args.predict:
         # pred_and_plot_image(model: torch.nn.Module,
         #                 image_path: str,
@@ -727,36 +880,60 @@ def main_worker(gpu, ngpus_per_node, args):
         # validate(val_loader, model, criterion, args)
         return
 
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
+    print("No other options selected so we are training this model....")
 
-        # train for one epoch
-        ic(train(train_loader, model, criterion, optimizer, epoch, device, args))
+    start_time = timer()
+    # Setup training and save the results
+    results = engine.train(
+        model=model,
+        train_dataloader=train_dataloader,
+        test_dataloader=test_dataloader,
+        optimizer=optimizer,
+        loss_fn=loss_fn,
+        epochs=5,
+        device=device,
+    )
 
-        # evaluate on validation set
-        acc1, test_loss, test_acc = validate(val_loader, model, criterion, args)
+    # End the timer and print out how long it took
+    end_time = timer()
+    print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
 
-        # scheduler.step()
+    path_to_model = save_model_to_disk("ScreenNetV1", model)
+    loaded_model_for_inference = load_model_for_inference(
+        path_to_model, device, class_names
+    )
+    rich.inspect(loaded_model_for_inference, all=True)
 
-        # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+    # for epoch in range(args.start_epoch, args.epochs):
+    #     if args.distributed:
+    #         train_sampler.set_epoch(epoch)
 
-        if not args.multiprocessing_distributed or (
-            args.multiprocessing_distributed and args.rank % ngpus_per_node == 0
-        ):
-            save_checkpoint(
-                {
-                    "epoch": epoch + 1,
-                    "arch": args.arch,
-                    "state_dict": model.state_dict(),
-                    "best_acc1": best_acc1,
-                    "optimizer": optimizer.state_dict(),
-                    # "scheduler": scheduler.state_dict(),
-                },
-                is_best,
-            )
+    #     # train for one epoch
+    #     ic(train(train_loader, model, criterion, optimizer, epoch, device, args))
+
+    #     # evaluate on validation set
+    #     acc1, test_loss, test_acc = validate(val_loader, model, criterion, args)
+
+    #     # scheduler.step()
+
+    #     # remember best acc@1 and save checkpoint
+    #     is_best = acc1 > best_acc1
+    #     best_acc1 = max(acc1, best_acc1)
+
+    #     if not args.multiprocessing_distributed or (
+    #         args.multiprocessing_distributed and args.rank % ngpus_per_node == 0
+    #     ):
+    #         save_checkpoint(
+    #             {
+    #                 "epoch": epoch + 1,
+    #                 "arch": args.arch,
+    #                 "state_dict": model.state_dict(),
+    #                 "best_acc1": best_acc1,
+    #                 "optimizer": optimizer.state_dict(),
+    #                 # "scheduler": scheduler.state_dict(),
+    #             },
+    #             is_best,
+    #         )
 
 
 def train(
@@ -1056,8 +1233,38 @@ def accuracy(output: torch.Tensor, target: torch.Tensor, topk=(1,)):
         return res
 
 
-# y_preds = []
-# y_pred_tensor = None
+def get_random_images_from_dataset(
+    model: torch.nn.Module,
+    test_dir: pathlib.PosixPath,
+    class_names: List[str],
+    num_images_to_plot: int = 3,
+):
+
+    # Get a random list of image paths from test set
+    import random
+
+    num_images_to_plot = 3
+    test_image_path_list = list(
+        Path(test_dir).glob("*/*.jpg")
+    )  # get list all image paths from test data
+    test_image_path_sample = random.sample(
+        population=test_image_path_list,  # go through all of the test image paths
+        k=num_images_to_plot,
+    )  # randomly select 'k' image paths to pred and plot
+
+    # Make predictions on and plot the images
+    for image_path in test_image_path_sample:
+        pred_and_plot_image(
+            model=model,
+            image_path=image_path,
+            class_names=class_names,
+            # transform=weights.transforms(), # optionally pass in a specified transform from our pretrained model weights
+            image_size=(224, 224),
+        )
+
+
+y_preds = []
+y_pred_tensor = None
 
 # 1. Take in a trained model, class names, image path, image size, a transform and target device
 def pred_and_plot_image(
@@ -1105,10 +1312,10 @@ def pred_and_plot_image(
 
     # boss: Put predictions on CPU for evaluation
     # source: https://www.learnpytorch.io/03_pytorch_computer_vision/#11-save-and-load-best-performing-model
-    target_image_pred_probs
-    # y_preds.append(target_image_pred_probs.cpu())
+    ic(target_image_pred_probs)
+    y_preds.append(target_image_pred_probs.cpu())
     # boss: Concatenate list of predictions into a tensor
-    # y_pred_tensor = torch.cat(y_preds)
+    y_pred_tensor = torch.cat(y_preds)
 
     # 9. Convert prediction probabilities -> prediction labels
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
@@ -1123,17 +1330,62 @@ def pred_and_plot_image(
     plt.axis(False)
 
 
+# SOURCE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
+# Saving & Loading Model for Inference
+def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
+    # Create models directory (if it doesn't already exist), see: https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir
+    MODEL_PATH = Path("models")
+    MODEL_PATH.mkdir(
+        parents=True,  # create parent directories if needed
+        exist_ok=True,  # if models directory already exists, don't error
+    )
+
+    # Create model save path
+    MODEL_NAME = f"{my_model_name}.pth"
+    MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+
+    # Save the model state dict
+    print(f"Saving model to: {MODEL_SAVE_PATH}")
+    torch.save(
+        obj=model.state_dict(),  # only saving the state_dict() only saves the learned parameters
+        f=MODEL_SAVE_PATH,
+    )
+    print("Model saved to path {} successfully.".format(MODEL_SAVE_PATH))
+    return MODEL_SAVE_PATH
+
+
+# NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
+def load_model_for_inference(
+    save_path: str, device: str, class_names: List[str]
+) -> nn.Module:
+    model = setup_efficientnet_model(device, class_names)
+    model.load_state_dict(torch.load(save_path))
+    model.eval()
+    print("Model loaded from path {} successfully.".format(save_path))
+    get_model_summary(model)
+    return model
+
+
+# SOURCE: https://github.com/a-sasikumar/image_caption_errors/blob/d583dc77cfa9938bb15297b3096a959fe6084b66/models/model.py
+def load_model_from_disk(save_path: str, empty_model: nn.Module) -> nn.Module:
+    # Loading Model for Inference
+    empty_model.load_state_dict(torch.load(save_path))
+    # Remember that you must call model.eval() to set dropout and batch normalization layers to evaluation mode before running inference. Failing to do this will yield inconsistent inference results.
+    empty_model.eval()
+    print("Model loaded from path {} successfully.".format(save_path))
+    return empty_model
+
+
 if __name__ == "__main__":
     import traceback
+
     try:
         main()
     except Exception as ex:
 
         print(str(ex))
         exc_type, exc_value, exc_traceback = sys.exc_info()
-        tb = traceback.TracebackException(
-            exc_type, exc_value, exc_traceback
-        )
+        tb = traceback.TracebackException(exc_type, exc_value, exc_traceback)
         traceback_str = "".join(tb.format_exception_only())
         print("Error Class: {}".format(str(ex.__class__)))
 
