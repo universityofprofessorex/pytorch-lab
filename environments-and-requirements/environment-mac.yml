@@ -64,5 +64,6 @@ dependencies:
       - git+https://github.com/openai/CLIP.git@main#egg=clip
       - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
       - viztracer
+      - pdbr
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
+# import bpdb; bpdb.set_trace()
+# import pdbr
+# import pdb
+# pdb = pdb.pdb
+
+import bpdb
+
+
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
 # %load_ext rich
 # %matplotlib inline
 import sys
 import os
-
 import os.path
 import pathlib
 
@@ -20,12 +27,15 @@ sys.path.append("../")
 import rich
 from rich import inspect, print
 from rich.console import Console
+
 # from rich.traceback import install
 # install(show_locals=True)
 from icecream import ic
-import better_exceptions
+# import better_exceptions
+import better_exceptions; better_exceptions.hook()
+import devices
 
-console = Console()
+# console = Console()
 # ---------------------------------------------------------------------------
 
 
@@ -353,7 +363,7 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--pretrained", dest="pretrained", action="store_true", help="use pre-trained model"
+    "--pretrained", dest="pretrained", action="store_true", default=True, help="use pre-trained model"
 )
 parser.add_argument(
     "--world-size",
@@ -459,15 +469,17 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.pretrained:
         print("=> using pre-trained model '{}'".format(args.arch))
         # breakpoint()
+        device = devices.get_optimal_device(args)
+        # models.__dict__[args.model_weights].DEFAULT = device
         weights = models.__dict__[args.model_weights].DEFAULT
         auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch](pretrained=True, weights=weights)
+        model = models.__dict__[args.arch](weights=weights).to(device)
     else:
         print("=> creating model '{}'".format(args.arch))
         # breakpoint()
-        weights = models.__dict__[args.model_weights].DEFAULT
-        auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch](weights=weights)
+        # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
+        # auto_transforms = weights.transforms()
+        model = models.__dict__[args.arch]()
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         print("using CPU, this will be slow")
@@ -490,7 +502,9 @@ def main_worker(gpu, ngpus_per_node, args):
                 )
                 print(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
             else:
-                print("Attempting to use single gpu device with DistributedDataParallel")
+                print(
+                    "Attempting to use single gpu device with DistributedDataParallel"
+                )
                 model.cuda()
                 # DistributedDataParallel will divide and allocate batch_size to all
                 # available GPUs if device_ids are not set
@@ -784,7 +798,7 @@ def train(
         target = target.to(device, non_blocking=True)
 
         ic(next(model.parameters()).device)
-        breakpoint()
+
         # 1. Forward pass (logits)
         y_pred: torch.Tensor
         output: torch.Tensor
@@ -1021,7 +1035,7 @@ class ProgressMeter(object):
 
 
 # https://discuss.pytorch.org/t/pred-output-topk-maxk-1-true-true-runtimeerror-selected-index-k-out-of-range/126940
-def accuracy(output, target, topk=(1,)):
+def accuracy(output: torch.Tensor, target: torch.Tensor, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     # with torch.no_grad():
     with torch.inference_mode():
@@ -1110,4 +1124,22 @@ def pred_and_plot_image(
 
 
 if __name__ == "__main__":
-    main()
+    import traceback
+    try:
+        main()
+    except Exception as ex:
+
+        print(str(ex))
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        tb = traceback.TracebackException(
+            exc_type, exc_value, exc_traceback
+        )
+        traceback_str = "".join(tb.format_exception_only())
+        print("Error Class: {}".format(str(ex.__class__)))
+
+        output = "[{}] {}: {}".format("UNEXPECTED", type(ex).__name__, ex)
+        print(output)
+        print("exc_type: {}".format(exc_type))
+        print("exc_value: {}".format(exc_value))
+        traceback.print_tb(exc_traceback)
+        bpdb.pm()
