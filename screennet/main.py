@@ -26,20 +26,20 @@ sys.path.append(extra_modules_path)
 sys.path.append("../")
 # import better_exceptions
 import better_exceptions
-import rich
-
-# ---------------------------------------------------------------------------
-import torch
-import torchvision
 
 # from rich.traceback import install
 # install(show_locals=True)
 from icecream import ic
+import rich
 from rich import inspect, print
 from rich.console import Console
+
+# ---------------------------------------------------------------------------
+import torch
+import torchvision
 from torchvision import datasets, transforms
 
-import devices
+import devices  # pylint: disable=import-error
 
 better_exceptions.hook()
 
@@ -55,17 +55,17 @@ assert (
 # print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
 
+# breakpoint()
+from going_modular import data_setup, engine  # pylint: disable=no-name-in-module
+
 # Continue with regular imports
 import matplotlib.pyplot as plt
 import mlxtend
 import torch
-import torchmetrics
-import torchvision
-
-# breakpoint()
-from going_modular import data_setup, engine
 from torch import nn
 from torchinfo import summary
+import torchmetrics
+import torchvision
 from torchvision import transforms
 
 # Try to get torchinfo, install it if it doesn't work
@@ -77,20 +77,26 @@ assert (
 ), "mlxtend verison should be 0.19.0 or higher"
 
 import argparse
+from enum import Enum
+from itertools import product
 import os
+from pathlib import Path
 import random
 import shutil
 import time
+from timeit import default_timer as timer
+from urllib.parse import unquote, urlparse
 import warnings
 import zipfile
-from enum import Enum
-from itertools import product
-from pathlib import Path
-from timeit import default_timer as timer
-from typing import List, Tuple
-from urllib.parse import unquote, urlparse
 
+from typing import List, Tuple
+
+from PIL import Image
+
+# Import accuracy metric
+from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
 import matplotlib
+from mlxtend.plotting import plot_confusion_matrix
 import numpy as np
 import numpy.typing as npt
 import requests
@@ -104,19 +110,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim
+from torch.optim.lr_scheduler import StepLR
 import torch.utils.data
+from torch.utils.data import Subset
 import torch.utils.data.distributed
+from torchmetrics import ConfusionMatrix
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
-
-# Import accuracy metric
-from helper_functions import accuracy_fn  # Note: could also use torchmetrics.Accuracy()
-from mlxtend.plotting import plot_confusion_matrix
-from PIL import Image
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import Subset
-from torchmetrics import ConfusionMatrix
 
 
 def download_and_predict(
@@ -147,7 +148,10 @@ def download_and_predict(
 
     # Predict on custom image
     pred_and_plot_image(
-        model=model, image_path=custom_image_path, class_names=class_names, device=device
+        model=model,
+        image_path=custom_image_path,
+        class_names=class_names,
+        device=device,
     )
 
 
@@ -257,17 +261,14 @@ def run_validate(
     model: torch.nn.Module,
     test_dataloader: torch.utils.data.DataLoader,
     device: torch.device,
-    loss_fn: torch.nn.Module
+    loss_fn: torch.nn.Module,
 ):
     print(" Running in evaluate mode ...")
 
     start_time = timer()
     # Setup testing and save the results
     test_loss, test_acc = engine.test_step(
-        model=model,
-        dataloader=test_dataloader,
-        loss_fn=loss_fn,
-        device=device
+        model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
     )
 
     # End the timer and print out how long it took
@@ -888,7 +889,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         )
         return
 
-
     if args.evaluate:
         # validate(val_loader, model, criterion, args)
         run_validate(model, test_dataloader, device, criterion)
@@ -913,7 +913,11 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     if args.download_and_predict:
         print(" Running download and predict command ...")
         download_and_predict(
-            args.download_and_predict, model, Path(args.data), class_names=class_names, device=device
+            args.download_and_predict,
+            model,
+            Path(args.data),
+            class_names=class_names,
+            device=device,
         )
         return
 
@@ -956,7 +960,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     end_time = timer()
     print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
 
-    path_to_model, loaded_model_for_inference = run_get_model_for_inference(model, device, class_names)
+    path_to_model, loaded_model_for_inference = run_get_model_for_inference(
+        model, device, class_names
+    )
 
     # for epoch in range(args.start_epoch, args.epochs):
     #     if args.distributed:
@@ -1294,7 +1300,7 @@ def get_random_images_from_dataset(
     num_images_to_plot: int = 3,
     device: torch.device = None,
     y_preds: List[torch.Tensor] = [],
-    y_pred_tensor: torch.Tensor = None
+    y_pred_tensor: torch.Tensor = None,
 ):
 
     # Get a random list of image paths from test set
@@ -1319,7 +1325,7 @@ def get_random_images_from_dataset(
             image_size=(224, 224),
             device=device,
             y_preds=y_preds,
-            y_pred_tensor=y_pred_tensor
+            y_pred_tensor=y_pred_tensor,
         )
 
 
@@ -1335,7 +1341,7 @@ def pred_and_plot_image(
     transform: torchvision.transforms = None,
     device: torch.device = None,
     y_preds: List[torch.Tensor] = [],
-    y_pred_tensor: torch.Tensor = None
+    y_pred_tensor: torch.Tensor = None,
 ):
 
     # 2. Open image
@@ -1391,8 +1397,11 @@ def pred_and_plot_image(
     )
     plt.axis(False)
 
+
 # wrapper function of common code
-def run_get_model_for_inference(model: torch.nn.Module, device: torch.device, class_names: List[str]) -> Tuple[pathlib.PosixPath, torch.nn.Module]:
+def run_get_model_for_inference(
+    model: torch.nn.Module, device: torch.device, class_names: List[str]
+) -> Tuple[pathlib.PosixPath, torch.nn.Module]:
     """wrapper function to load model .pth file from disk
 
     Args:

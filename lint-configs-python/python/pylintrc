@@ -96,6 +96,8 @@ class-rgx=%(const-rgx)s
 # (useful for classes with attributes dynamically set).
 # SOURCE: https://cs50.stackexchange.com/questions/32768/instance-of-scoped-session-has-no-commit-member
 ignored-classes=pytest,LocalPath,_MovedItems,SQLObject,Registrant,scoped_session
+# NOTE: https://stackoverflow.com/questions/50319943/pytorch-error-message-torch-has-no-member
+generated-members=numpy.*, torch.*
 
 
 [VARIABLES]

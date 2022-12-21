@@ -21,3 +21,7 @@ py-spy:
 
 py-spy-top:
 	py-spy top -- python main.py
+
+autoflake:
+# autoflake --recursive --remove-unused-variables --remove-all-unused-imports --in-place *.py
+	autoflake --recursive --in-place *.py
