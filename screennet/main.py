@@ -426,7 +426,7 @@ def inspect_csv_results():
     table = Table(show_header=True, header_style="bold magenta")
 
     # Modify the table instance to have the data from the DataFrame
-    table = df_to_table(df, table)
+    table = df_to_table(results_df, table)
 
     # Update the style of the table
     table.row_styles = ["none", "dim"]
