@@ -868,12 +868,103 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         device = torch.device("mps")
     else:
         device = torch.device("cpu")
+
+    # BOSSNEW
+    # Data loading code
+    if args.dummy:
+        print("=> Dummy data is used!")
+        train_dataset = datasets.FakeData(
+            1281167, (3, 224, 224), 1000, transforms.ToTensor()
+        )
+        val_dataset = datasets.FakeData(
+            50000, (3, 224, 224), 1000, transforms.ToTensor()
+        )
+    else:
+
+        # Setup path to data folder
+        data_path = Path(args.data) / "twitter_facebook_tiktok"
+        image_path = data_path / "twitter_facebook_tiktok"
+        train_dir = image_path / "train"
+        test_dir = image_path / "test"
+
+        train_dataloader: torch.utils.data.DataLoader
+        test_dataloader: torch.utils.data.DataLoader
+        class_names: List[str]
+
+        train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
+            train_dir=train_dir,
+            test_dir=test_dir,
+            transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
+            batch_size=args.batch_size,
+            pin_memory=True,
+        )  # set mini-batch size to 32
+
+        # get datasets for confusion matrix
+        # Use ImageFolder to create dataset(s)
+        train_dataset = train_data = datasets.ImageFolder(
+            train_dir, transform=auto_transforms
+        )
+        val_dataset = test_data = datasets.ImageFolder(
+            test_dir, transform=auto_transforms
+        )
+
+    # -----------------------------
+    # BOSSNEW
+    # Print a summary using torchinfo (uncomment for actual output)
+    # print('Do a summary *before* freezing the features and changing the output classifier layer (uncomment for actual output)')
+    # summary(model=model,
+    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape"
+    #         # col_names=["input_size"], # uncomment for smaller output
+    #         col_names=["input_size", "output_size", "num_params", "trainable"],
+    #         col_width=20,
+    #         row_settings=["var_names"]
+    # )
+
+    # BOSSNEW
+    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
+    for param in model.features.parameters():
+        param.requires_grad = False
+
+    # Get the length of class_names (one output unit for each class)
+    output_shape = len(class_names)
+
+    # Recreate the classifier layer and seed it to the target device
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout(p=0.2, inplace=True),
+        torch.nn.Linear(
+            in_features=1280,
+            out_features=output_shape,  # same number of output units as our number of classes
+            bias=True,
+        ),
+    ).to(device)
+
+    ic(next(model.parameters()).device)
+
+    # print('Do a summary *after* freezing the features and changing the output classifier layer (uncomment for actual output)')
+    # summary(model,
+    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+    #         verbose=0,
+    #         col_names=["input_size", "output_size", "num_params", "trainable"],
+    #         col_width=20,
+    #         row_settings=["var_names"]
+    # )
+
     # define loss function (criterion), optimizer, and learning rate scheduler
     # criterion = nn.CrossEntropyLoss().to(device)
     # Define loss and optimizer
-    loss_fn = nn.CrossEntropyLoss().to(device)
+    # BOSSNEW
+    # loss_fn = nn.CrossEntropyLoss().to(device)
+    loss_fn = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+
+    # # define loss function (criterion), optimizer, and learning rate scheduler
+    # # criterion = nn.CrossEntropyLoss().to(device)
+    # # Define loss and optimizer
+    # loss_fn = nn.CrossEntropyLoss().to(device)
+
+    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -901,74 +992,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-    # Data loading code
-    if args.dummy:
-        print("=> Dummy data is used!")
-        train_dataset = datasets.FakeData(
-            1281167, (3, 224, 224), 1000, transforms.ToTensor()
-        )
-        val_dataset = datasets.FakeData(
-            50000, (3, 224, 224), 1000, transforms.ToTensor()
-        )
-    else:
-
-        # Setup path to data folder
-        data_path = Path(args.data)
-        image_path = data_path / "twitter_facebook_tiktok"
-        train_dir = image_path / "train"
-        test_dir = image_path / "test"
-
-        train_dataloader: torch.utils.data.DataLoader
-        test_dataloader: torch.utils.data.DataLoader
-        class_names: List[str]
-
-        train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
-            train_dir=train_dir,
-            test_dir=test_dir,
-            transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
-            batch_size=args.batch_size,
-            pin_memory=True,
-        )  # set mini-batch size to 32
-
-        # get datasets for confusion matrix
-        # Use ImageFolder to create dataset(s)
-        train_dataset = train_data = datasets.ImageFolder(
-            train_dir, transform=auto_transforms
-        )
-        val_dataset = test_data = datasets.ImageFolder(
-            test_dir, transform=auto_transforms
-        )
-
-        # traindir = os.path.join(args.data, "train")
-        # valdir = os.path.join(args.data, "val")
-        # normalize = transforms.Normalize(
-        #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        # )
-
-        # train_dataset = datasets.ImageFolder(
-        #     traindir,
-        #     transforms.Compose(
-        #         [
-        #             transforms.RandomResizedCrop(224),
-        #             transforms.RandomHorizontalFlip(),
-        #             transforms.ToTensor(),
-        #             normalize,
-        #         ]
-        #     ),
-        # )
-
-        # val_dataset = datasets.ImageFolder(
-        #     valdir,
-        #     transforms.Compose(
-        #         [
-        #             transforms.Resize(256),
-        #             transforms.CenterCrop(224),
-        #             transforms.ToTensor(),
-        #             normalize,
-        #         ]
-        #     ),
-        # )
-
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         val_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -978,45 +1001,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         train_sampler = None
         val_sampler = None
 
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     batch_size=args.batch_size,
-    #     shuffle=(train_sampler is None),
-    #     num_workers=args.workers,
-    #     pin_memory=True,
-    #     sampler=train_sampler,
-    # )
-
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     batch_size=args.batch_size,
-    #     shuffle=False,
-    #     num_workers=args.workers,
-    #     pin_memory=True,
-    #     sampler=val_sampler,
-    # )
-
-    # train_loader = train_dataloader
-    # val_loader = test_dataloader
-
-    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    for param in model.features.parameters():
-        param.requires_grad = False
-
-    # Get the length of class_names (one output unit for each class)
-    output_shape = len(class_names)
-
-    # Recreate the classifier layer and seed it to the target device
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=0.2, inplace=True),
-        torch.nn.Linear(
-            in_features=1280,
-            out_features=output_shape,  # same number of output units as our number of classes
-            bias=True,
-        ),
-    ).to(device)
-
-    ic(next(model.parameters()).device)
 
     if args.info:
         info(args, dataset_root_dir=image_path)
