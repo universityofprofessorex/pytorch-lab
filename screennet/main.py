@@ -83,9 +83,8 @@ import os
 from pathlib import Path
 import random
 import shutil
-import time
 from timeit import default_timer as timer
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 import warnings
 import zipfile
 
@@ -252,7 +251,7 @@ def run_confusion_matrix(
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
 
-    cmat, type(cmat)
+    # cmat, type(cmat)
 
     show_confusion_matrix_helper(cmat, class_names)
 
@@ -276,6 +275,35 @@ def run_validate(
     print(f"[INFO] Total testing time: {end_time-start_time:.3f} seconds")
     ic(test_loss)
     ic(test_acc)
+
+def run_train(
+    model: torch.nn.Module,
+    train_dataloader: torch.utils.data.DataLoader,
+    test_dataloader: torch.utils.data.DataLoader,
+    loss_fn: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    epochs: int,
+    device: torch.device,
+):
+    print("No other options selected so we are training this model....")
+
+    start_time = timer()
+    # Setup training and save the results
+    results = engine.train(
+        model=model,
+        train_dataloader=train_dataloader,
+        test_dataloader=test_dataloader,
+        optimizer=optimizer,
+        loss_fn=loss_fn,
+        epochs=5,
+        device=device,
+    )
+
+    # End the timer and print out how long it took
+    end_time = timer()
+    print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
+
+
 
 
 def print_train_time(start: float, end: float, device: torch.device = None):
@@ -547,7 +575,6 @@ parser.add_argument(
     "--summary",
     dest="summary",
     action="store_true",
-    default=True,
     help="Get model summary output",
 )
 parser.add_argument(
@@ -593,15 +620,15 @@ def main():
     if args.seed is not None:
         random.seed(args.seed)
         torch.manual_seed(args.seed)
-        cudnn.deterministic = True
-        cudnn.benchmark = False
-        warnings.warn(
-            "You have chosen to seed training. "
-            "This will turn on the CUDNN deterministic setting, "
-            "which can slow down your training considerably! "
-            "You may see unexpected behavior when restarting "
-            "from checkpoints."
-        )
+        # cudnn.deterministic = True
+        # cudnn.benchmark = False
+        # warnings.warn(
+        #     "You have chosen to seed training. "
+        #     "This will turn on the CUDNN deterministic setting, "
+        #     "which can slow down your training considerably! "
+        #     "You may see unexpected behavior when restarting "
+        #     "from checkpoints."
+        # )
 
     if args.gpu is not None:
         warnings.warn(
@@ -655,7 +682,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         )
     # create model
     if args.pretrained:
-        print("=> using pre-trained model '{}'".format(args.arch))
+        ic("=> using pre-trained model '{}'".format(args.arch))
         # breakpoint()
         device = devices.get_optimal_device(args)
         # models.__dict__[args.model_weights].DEFAULT = device
@@ -663,16 +690,16 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         auto_transforms = weights.transforms()
         model = models.__dict__[args.arch](weights=weights).to(device)
     else:
-        print("=> creating model '{}'".format(args.arch))
+        ic("=> creating model '{}'".format(args.arch))
         # breakpoint()
         # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
         # auto_transforms = weights.transforms()
         model = models.__dict__[args.arch]()
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
-        print("using CPU, this will be slow")
+        ic("using CPU, this will be slow")
     elif args.distributed:
-        print("distributed mode enabled")
+        ic("distributed mode enabled")
         # For multiprocessing distributed, DistributedDataParallel constructor
         # should always set the single device scope, otherwise,
         # DistributedDataParallel will use all available devices.
@@ -688,9 +715,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 model = torch.nn.parallel.DistributedDataParallel(
                     model, device_ids=[args.gpu]
                 )
-                print(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
+                ic(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
             else:
-                print(
+                ic(
                     "Attempting to use single gpu device with DistributedDataParallel"
                 )
                 model.cuda()
@@ -698,17 +725,17 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 # available GPUs if device_ids are not set
                 model = torch.nn.parallel.DistributedDataParallel(model)
     elif args.gpu is not None and torch.cuda.is_available():
-        print("GPU enabled")
+        ic("GPU enabled")
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
     elif torch.backends.mps.is_available():
-        print("MPS mode enabled")
+        ic("MPS mode enabled")
         device = torch.device("mps")
         model = model.to(device)
     else:
         # DataParallel will divide and allocate batch_size to all available GPUs
         if args.arch.startswith("alexnet") or args.arch.startswith("vgg"):
-            print(f"Using alexnet or vgg -> {args.arch}")
+            ic(f"Using alexnet or vgg -> {args.arch}")
             model.features = torch.nn.DataParallel(model.features)
             model.cuda()
         else:
@@ -891,7 +918,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.evaluate:
         # validate(val_loader, model, criterion, args)
-        run_validate(model, test_dataloader, device, criterion)
+        ic(run_validate(model, test_dataloader, device, criterion))
         # print(" Running in evaluate mode ...")
 
         # start_time = timer()
@@ -942,26 +969,13 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # validate(val_loader, model, criterion, args)
         return
 
+    ic(run_train(model, train_dataloader, test_dataloader, criterion, optimizer, args.epochs, device))
     print("No other options selected so we are training this model....")
 
-    start_time = timer()
-    # Setup training and save the results
-    results = engine.train(
-        model=model,
-        train_dataloader=train_dataloader,
-        test_dataloader=test_dataloader,
-        optimizer=optimizer,
-        loss_fn=loss_fn,
-        epochs=5,
-        device=device,
-    )
+    path_to_model = save_model_to_disk("ScreenNetV1", model)
 
-    # End the timer and print out how long it took
-    end_time = timer()
-    print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
-
-    path_to_model, loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names
+    loaded_model_for_inference = run_get_model_for_inference(
+        model, device, class_names, path_to_model
     )
 
     # for epoch in range(args.start_epoch, args.epochs):
@@ -1399,9 +1413,26 @@ def pred_and_plot_image(
 
 
 # wrapper function of common code
+def run_save_model_for_inference(
+    model: torch.nn.Module
+) -> Tuple[pathlib.PosixPath]:
+    """Save model to disk
+
+    Args:
+        model (torch.nn.Module): _description_
+
+    Returns:
+        Tuple[pathlib.PosixPath]: _description_
+    """
+    ic("Saving model to disk ...")
+    path_to_model = save_model_to_disk("ScreenNetV1", model)
+    ic(path_to_model)
+    return path_to_model
+
+# wrapper function of common code
 def run_get_model_for_inference(
-    model: torch.nn.Module, device: torch.device, class_names: List[str]
-) -> Tuple[pathlib.PosixPath, torch.nn.Module]:
+    model: torch.nn.Module, device: torch.device, class_names: List[str], path_to_model: pathlib.PosixPath
+) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
     Args:
@@ -1412,12 +1443,12 @@ def run_get_model_for_inference(
     Returns:
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
-    path_to_model = save_model_to_disk("ScreenNetV1", model)
     loaded_model_for_inference = load_model_for_inference(
         path_to_model, device, class_names
     )
     rich.inspect(loaded_model_for_inference, all=True)
-    return path_to_model
+    return loaded_model_for_inference
+
 
 
 # SOURCE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference

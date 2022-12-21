@@ -1,9 +1,6 @@
 # SOURCE: https://github.com/socialhourmobile/SD-hassan-ns/blob/3b6b266b17e0fd0a9b17374cd2afbf4c59b7c245/modules/devices.py
 import argparse
 import contextlib
-import os
-import shlex
-import sys
 
 from typing import Optional, Union
 

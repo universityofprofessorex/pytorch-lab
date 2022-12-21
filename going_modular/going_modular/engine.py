@@ -5,6 +5,7 @@ import torch
 
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
+from icecream import ic
 
 
 def train_step(
@@ -163,6 +164,15 @@ def train(
               test_loss: [1.2641, 1.5706],
               test_acc: [0.3400, 0.2973]}
     """
+
+    ic(model)
+    ic(train_dataloader)
+    ic(test_dataloader)
+    ic(optimizer)
+    ic(loss_fn)
+    ic(epochs)
+    ic(device)
+
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
 
