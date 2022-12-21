@@ -73,5 +73,6 @@ dependencies:
       - watermark
       - pyfiglet
       - pynguin
+      - memray
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

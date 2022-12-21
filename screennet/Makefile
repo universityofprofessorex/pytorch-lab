@@ -33,3 +33,5 @@ pynguin:
         --output-path /tmp/pynguin-results \
         --module-name main \
         -v
+memray:
+	memray run --live main.py
