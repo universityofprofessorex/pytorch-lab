@@ -25,3 +25,11 @@ py-spy-top:
 autoflake:
 # autoflake --recursive --remove-unused-variables --remove-all-unused-imports --in-place *.py
 	autoflake --recursive --in-place *.py
+
+pynguin:
+	mkdir -p /tmp/pynguin-results || true
+	pynguin \
+        --project-path ./ \
+        --output-path /tmp/pynguin-results \
+        --module-name main \
+        -v

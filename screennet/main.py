@@ -868,39 +868,8 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         device = torch.device("mps")
     else:
         device = torch.device("cpu")
-    # define loss function (criterion), optimizer, and learning rate scheduler
-    # criterion = nn.CrossEntropyLoss().to(device)
-    # Define loss and optimizer
-    loss_fn = nn.CrossEntropyLoss().to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            if args.gpu is None:
-                checkpoint = torch.load(args.resume)
-            elif torch.cuda.is_available():
-                # Map model to be loaded to specified single gpu.
-                loc = "cuda:{}".format(args.gpu)
-                checkpoint = torch.load(args.resume, map_location=loc)
-            args.start_epoch = checkpoint["epoch"]
-            best_acc1 = checkpoint["best_acc1"]
-            if args.gpu is not None:
-                # best_acc1 may be from a checkpoint from a different GPU
-                best_acc1 = best_acc1.to(args.gpu)
-            model.load_state_dict(checkpoint["state_dict"])
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            # scheduler.load_state_dict(checkpoint["scheduler"])
-            print(
-                "=> loaded checkpoint '{}' (epoch {})".format(
-                    args.resume, checkpoint["epoch"]
-                )
-            )
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
+    # BOSSNEW
     # Data loading code
     if args.dummy:
         print("=> Dummy data is used!")
@@ -939,66 +908,19 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             test_dir, transform=auto_transforms
         )
 
-        # traindir = os.path.join(args.data, "train")
-        # valdir = os.path.join(args.data, "val")
-        # normalize = transforms.Normalize(
-        #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        # )
-
-        # train_dataset = datasets.ImageFolder(
-        #     traindir,
-        #     transforms.Compose(
-        #         [
-        #             transforms.RandomResizedCrop(224),
-        #             transforms.RandomHorizontalFlip(),
-        #             transforms.ToTensor(),
-        #             normalize,
-        #         ]
-        #     ),
-        # )
-
-        # val_dataset = datasets.ImageFolder(
-        #     valdir,
-        #     transforms.Compose(
-        #         [
-        #             transforms.Resize(256),
-        #             transforms.CenterCrop(224),
-        #             transforms.ToTensor(),
-        #             normalize,
-        #         ]
-        #     ),
-        # )
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(
-            val_dataset, shuffle=False, drop_last=True
-        )
-    else:
-        train_sampler = None
-        val_sampler = None
-
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     batch_size=args.batch_size,
-    #     shuffle=(train_sampler is None),
-    #     num_workers=args.workers,
-    #     pin_memory=True,
-    #     sampler=train_sampler,
+    # -----------------------------
+    # BOSSNEW
+    # Print a summary using torchinfo (uncomment for actual output)
+    # print('Do a summary *before* freezing the features and changing the output classifier layer (uncomment for actual output)')
+    # summary(model=model,
+    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape"
+    #         # col_names=["input_size"], # uncomment for smaller output
+    #         col_names=["input_size", "output_size", "num_params", "trainable"],
+    #         col_width=20,
+    #         row_settings=["var_names"]
     # )
 
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     batch_size=args.batch_size,
-    #     shuffle=False,
-    #     num_workers=args.workers,
-    #     pin_memory=True,
-    #     sampler=val_sampler,
-    # )
-
-    # train_loader = train_dataloader
-    # val_loader = test_dataloader
-
+    # BOSSNEW
     # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
     for param in model.features.parameters():
         param.requires_grad = False
@@ -1017,6 +939,68 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     ).to(device)
 
     ic(next(model.parameters()).device)
+
+    # print('Do a summary *after* freezing the features and changing the output classifier layer (uncomment for actual output)')
+    # summary(model,
+    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
+    #         verbose=0,
+    #         col_names=["input_size", "output_size", "num_params", "trainable"],
+    #         col_width=20,
+    #         row_settings=["var_names"]
+    # )
+
+    # define loss function (criterion), optimizer, and learning rate scheduler
+    # criterion = nn.CrossEntropyLoss().to(device)
+    # Define loss and optimizer
+    # BOSSNEW
+    # loss_fn = nn.CrossEntropyLoss().to(device)
+    loss_fn = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+
+    # # define loss function (criterion), optimizer, and learning rate scheduler
+    # # criterion = nn.CrossEntropyLoss().to(device)
+    # # Define loss and optimizer
+    # loss_fn = nn.CrossEntropyLoss().to(device)
+
+    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    # optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            if args.gpu is None:
+                checkpoint = torch.load(args.resume)
+            elif torch.cuda.is_available():
+                # Map model to be loaded to specified single gpu.
+                loc = "cuda:{}".format(args.gpu)
+                checkpoint = torch.load(args.resume, map_location=loc)
+            args.start_epoch = checkpoint["epoch"]
+            best_acc1 = checkpoint["best_acc1"]
+            if args.gpu is not None:
+                # best_acc1 may be from a checkpoint from a different GPU
+                best_acc1 = best_acc1.to(args.gpu)
+            model.load_state_dict(checkpoint["state_dict"])
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            # scheduler.load_state_dict(checkpoint["scheduler"])
+            print(
+                "=> loaded checkpoint '{}' (epoch {})".format(
+                    args.resume, checkpoint["epoch"]
+                )
+            )
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
+
+    if args.distributed:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        val_sampler = torch.utils.data.distributed.DistributedSampler(
+            val_dataset, shuffle=False, drop_last=True
+        )
+    else:
+        train_sampler = None
+        val_sampler = None
+
 
     if args.info:
         info(args, dataset_root_dir=image_path)
@@ -1667,17 +1651,18 @@ def validate_seed(seed: int):
     with torch.no_grad():
         cpu_tensor.add_(-coeff * cpu_tensor.grad)
 
-    device = "mps"
-    mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
-    mps_tensor.requires_grad = True
-    mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
-        device
-    )  # Change this line
+    if torch.backends.mps.is_available():
+        device = "mps"
+        mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
+        mps_tensor.requires_grad = True
+        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+            device
+        )  # Change this line
 
-    with torch.no_grad():
-        mps_tensor.add_(-coeff * mps_tensor.grad)
+        with torch.no_grad():
+            mps_tensor.add_(-coeff * mps_tensor.grad)
 
-    print(cpu_tensor.detach().cpu().numpy() - mps_tensor.detach().cpu().numpy())
+        print(cpu_tensor.detach().cpu().numpy() - mps_tensor.detach().cpu().numpy())
 
 
 def info(args, dataset_root_dir=""):
