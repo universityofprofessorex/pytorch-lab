@@ -1,0 +1,570 @@
+~/dev/bossjones/pytorch-lab main
+❯ brew info qt5
+==> qt@5: stable 5.15.7 (bottled) [keg-only]
+Cross-platform application and UI framework
+https://www.qt.io/
+Not installed
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/qt@5.rb
+License: GFDL-1.3-only and GPL-2.0-only and GPL-3.0-only and LGPL-2.1-only and LGPL-3.0-only
+==> Dependencies
+Build: node ✔, pkg-config ✔, python@3.10 ✔
+Required: freetype ✔, glib ✔, jpeg-turbo ✔, libpng ✔, pcre2 ✔, webp ✔
+==> Requirements
+Build: Xcode ✔
+Required: macOS >= 10.12 ✔
+==> Caveats
+We agreed to the Qt open source license for you.
+If this is unacceptable you should uninstall.
+
+qt@5 is keg-only, which means it was not symlinked into /opt/homebrew,
+because this is an alternate version of another formula.
+
+==> Analytics
+install: 72,964 (30 days), 244,057 (90 days), 732,050 (365 days)
+install-on-request: 20,621 (30 days), 64,798 (90 days), 136,584 (365 days)
+build-error: 12 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew info gcc
+==> gcc: stable 12.2.0 (bottled), HEAD
+GNU compiler collection
+https://gcc.gnu.org/
+/opt/homebrew/Cellar/gcc/12.2.0 (1,470 files, 358.9MB) *
+  Poured from bottle on 2022-12-01 at 16:07:22
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/gcc.rb
+License: GPL-3.0-or-later with GCC-exception-3.1
+==> Dependencies
+Required: gmp ✔, isl ✔, libmpc ✔, mpfr ✔, zstd ✔
+==> Options
+--HEAD
+        Install HEAD version
+==> Analytics
+install: 88,254 (30 days), 347,053 (90 days), 1,468,178 (365 days)
+install-on-request: 44,304 (30 days), 172,167 (90 days), 692,422 (365 days)
+build-error: 342 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew info gdal
+==> gdal: stable 3.5.3 (bottled), HEAD
+Geospatial Data Abstraction Library
+https://www.gdal.org/
+Conflicts with:
+  avce00 (because both install a cpl_conv.h header)
+  cpl (because both install cpl_error.h)
+Not installed
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/gdal.rb
+License: MIT
+==> Dependencies
+Build: pkg-config ✔
+Required: cfitsio ✘, epsilon ✘, expat ✘, freexl ✘, geos ✘, giflib ✔, hdf5 ✘, jpeg-turbo ✔, json-c ✔, libdap ✘, libgeotiff ✘, libpng ✔, libpq ✘, libspatialite ✘, libtiff ✔, libxml2 ✔, netcdf ✘, numpy ✘, openjpeg ✔, pcre2 ✔, poppler ✘, proj
+ ✘, python@3.10 ✔, sqlite ✔, unixodbc ✔, webp ✔, xerces-c ✘, xz ✔, zstd ✔
+==> Options
+--HEAD
+        Install HEAD version
+==> Analytics
+install: 21,444 (30 days), 67,930 (90 days), 252,453 (365 days)
+install-on-request: 18,344 (30 days), 58,136 (90 days), 214,719 (365 days)
+build-error: 350 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew info cpl
+==> cpl: stable 7.2.2 (bottled)
+ISO-C libraries for developing astronomical data-reduction tasks
+https://www.eso.org/sci/software/cpl/
+Conflicts with:
+  gdal (because both install cpl_error.h)
+Not installed
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/cpl.rb
+License: GPL-2.0-or-later
+==> Dependencies
+Required: cfitsio ✘, fftw ✘, wcslib ✘
+==> Analytics
+install: 12 (30 days), 28 (90 days), 185 (365 days)
+install-on-request: 12 (30 days), 28 (90 days), 185 (365 days)
+build-error: 0 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew info  avce00
+==> avce00: stable 2.0.0 (bottled)
+Make Arc/Info (binary) Vector Coverages appear as E00
+http://avce00.maptools.org/avce00/index.html
+Conflicts with:
+  gdal (because both install a cpl_conv.h header)
+Not installed
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/avce00.rb
+==> Analytics
+install: 0 (30 days), 2 (90 days), 7 (365 days)
+install-on-request: 0 (30 days), 2 (90 days), 7 (365 days)
+build-error: 0 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew info cgal
+==> cgal: stable 5.5.1 (bottled)
+Computational Geometry Algorithms Library
+https://www.cgal.org/
+Not installed
+From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/cgal.rb
+License: GPL-3.0-or-later
+==> Dependencies
+Build: cmake ✘, qt@5 ✘
+Required: boost ✘, eigen ✔, gmp ✔, mpfr ✔
+==> Analytics
+install: 7,387 (30 days), 24,505 (90 days), 90,172 (365 days)
+install-on-request: 3,088 (30 days), 9,782 (90 days), 29,451 (365 days)
+build-error: 0 (30 days)
+
+~/dev/bossjones/pytorch-lab main*
+❯ brew install qt5 gcc gdal cgal
+Running `brew update --auto-update`...
+==> Auto-updated Homebrew!
+Updated 4 taps (homebrew/core, homebrew/cask, homebrew/bundle and homebrew/cask-fonts).
+==> New Formulae
+akku                          conda-zsh-completion          countdown                     d2                            enpass-cli                    kubevious                     pandemics                     unxip
+==> New Casks
+kopiaui                                                                                                                 superkey
+
+You have 106 outdated formulae installed.
+You can upgrade them with brew upgrade
+or list them with brew outdated.
+
+Warning: gcc 12.2.0 is already installed and up-to-date.
+To reinstall 12.2.0, run:
+  brew reinstall gcc
+==> Downloading https://ghcr.io/v2/homebrew/core/xz/manifests/5.2.9
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/xz/blobs/sha256:2efce74f1dc3366cb8cadd25ecc1a1f99e87890202b87980219589d900eb6b73
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:2efce74f1dc3366cb8cadd25ecc1a1f99e87890202b87980219589d900eb6b73?se=2022-12-05T21%3A55%3A00Z&sig=3OQxjIddoPeW4dKx4xg053FU7Ihzhr5C%2BWi4V5HTZTo%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/qt/5/manifests/5.15.7
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/qt/5/blobs/sha256:c63014e2be32bff361f16f56459a048b9149c567e789b2ad070f0baf24af3a95
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:c63014e2be32bff361f16f56459a048b9149c567e789b2ad070f0baf24af3a95?se=2022-12-05T21%3A55%3A00Z&sig=cqaPRak7sN99%2Bgr%2FqQUAH2lWvVjTFs%2BjoXq%2BqtHpmtg%3D&s
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/cfitsio/manifests/4.1.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/cfitsio/blobs/sha256:0269cf18a5dd1ce217c799461fb5831db284edb3d05c2b144ce30a7a1566f246
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:0269cf18a5dd1ce217c799461fb5831db284edb3d05c2b144ce30a7a1566f246?se=2022-12-05T22%3A00%3A00Z&sig=YiRdsx8XybFAVtvBQKEE0r7yFtet4NTO8t%2FyHR7UIyQ%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/popt/manifests/1.19
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/popt/blobs/sha256:1154aeb3aedee17c3dddb8f7896f4b5f6b4d7d9dc5334fd1011fb96768788e9c
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:1154aeb3aedee17c3dddb8f7896f4b5f6b4d7d9dc5334fd1011fb96768788e9c?se=2022-12-05T22%3A00%3A00Z&sig=KPvxiFr4Qq7jKCROb3EgLWFbWbeuafIXamzihBScXmc%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/epsilon/manifests/0.9.2
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/epsilon/blobs/sha256:670034faf15b3c9d8aee0684969850959349bfe460dac4df70dd7b379a6103f2
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:670034faf15b3c9d8aee0684969850959349bfe460dac4df70dd7b379a6103f2?se=2022-12-05T22%3A00%3A00Z&sig=NPAdmftZRBM1FhF1RLH9WFodOcQlaIGriw3cZZXy0NE%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/expat/manifests/2.5.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/expat/blobs/sha256:b2da23ec6cc32aa2cfabf746594e905cddb76b8351b40d317b9d4231cb782f13
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:b2da23ec6cc32aa2cfabf746594e905cddb76b8351b40d317b9d4231cb782f13?se=2022-12-05T22%3A00%3A00Z&sig=Td1ao7Y6C7usdQ1XtBFIeYhLpTuu7s4KM8HGB79wJog%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/freexl/manifests/1.0.6-1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/freexl/blobs/sha256:f2f26c1449a3f79a89ec85deb5cd22507ee4715827afdf31469fd605c8a31b7f
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:f2f26c1449a3f79a89ec85deb5cd22507ee4715827afdf31469fd605c8a31b7f?se=2022-12-05T22%3A00%3A00Z&sig=wqQY%2Ft6jOswcRMgmQGPunaL8hFrxwl%2B9UvXhuMWXqP8%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/geos/manifests/3.11.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/geos/blobs/sha256:12545b3c2976b4f7598ba16e28a3a6df73dd0fcb28444ce1e913e6522d510770
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:12545b3c2976b4f7598ba16e28a3a6df73dd0fcb28444ce1e913e6522d510770?se=2022-12-05T22%3A00%3A00Z&sig=SRwIwLgqW%2Fp83EHpviECv3dR6UqyyAEjK1Vbm0sSf%2B4%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libaec/manifests/1.0.6
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libaec/blobs/sha256:efb772c032399b490e5ba1f197e5cbf07efa3f9a83994ca770790f748a659587
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:efb772c032399b490e5ba1f197e5cbf07efa3f9a83994ca770790f748a659587?se=2022-12-05T22%3A00%3A00Z&sig=WvGB4svqr5lOCD8WIY9Awbe2TUmxAeAiBLFMqoNYUQc%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/hdf5/manifests/1.12.2_2-1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/hdf5/blobs/sha256:0988092d7820628de58e2b7317e54187fb15501a5acc6fd9f81fc7123d18a1d3
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:0988092d7820628de58e2b7317e54187fb15501a5acc6fd9f81fc7123d18a1d3?se=2022-12-05T22%3A00%3A00Z&sig=S510U3WnWCu6Cjr23IN2nFVh4NQpJ5HqwtKkibJaXZk%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libdap/manifests/3.20.11
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libdap/blobs/sha256:0110dd93e378ea92ffdb3ef93a55e6f0318b0213afc47c34672167ef3838569e
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:0110dd93e378ea92ffdb3ef93a55e6f0318b0213afc47c34672167ef3838569e?se=2022-12-05T22%3A00%3A00Z&sig=EoDeWGexv%2BEndVHeRAA3rPNHRQDahLCq5mTAcaJ4UBE%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/proj/manifests/9.1.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/proj/blobs/sha256:3850d1fd423d04f540a977bbefda4ef56b542ec721885922554887cd21065c45
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:3850d1fd423d04f540a977bbefda4ef56b542ec721885922554887cd21065c45?se=2022-12-05T22%3A00%3A00Z&sig=oen54Mt0Q44VHwYXINtf%2FDPKdS%2Fbd1nSrqan93EFSsc%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libgeotiff/manifests/1.7.1_2
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libgeotiff/blobs/sha256:f7ba75c48d134bac69f1521df8ce1ee07b7f7bb5c383819d6864d444f9306503
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:f7ba75c48d134bac69f1521df8ce1ee07b7f7bb5c383819d6864d444f9306503?se=2022-12-05T22%3A15%3A00Z&sig=4bw796Dbh1oOIJ27FOCZE0jHx2fO8lVRVLPpi3eYWOw%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/krb5/manifests/1.20.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/krb5/blobs/sha256:a6ef38ba592b8b2b541db10011c301006c25f94b1db786b0a8f7c904755a3e1e
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:a6ef38ba592b8b2b541db10011c301006c25f94b1db786b0a8f7c904755a3e1e?se=2022-12-05T22%3A15%3A00Z&sig=ij8XGRbR%2FgN2AVcWJ9Y8Gz0UdgDYnZlI297advOZzqM%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libpq/manifests/15.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libpq/blobs/sha256:93be59131fe599125fbab83e21a0f954d866957a8fd139f8e822b21d5300befe
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:93be59131fe599125fbab83e21a0f954d866957a8fd139f8e822b21d5300befe?se=2022-12-05T22%3A15%3A00Z&sig=D1LAtRD6okYjWxMf3ByJvbg9TUFBfl3CRbKAmlZSNi8%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/librttopo/manifests/1.1.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/librttopo/blobs/sha256:9eee7c1b207b85c576f61e416c507d7b58d657f4d9e314e26ff3a964066965a3
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:9eee7c1b207b85c576f61e416c507d7b58d657f4d9e314e26ff3a964066965a3?se=2022-12-05T22%3A15%3A00Z&sig=6KeeNcopcD%2BFxhfygfflqCFSVwxgHBoX2lJGRH%2BDAEQ%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/minizip/manifests/1.2.13
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/minizip/blobs/sha256:24bd919aa1dde395f929d897743f9235fd6023e017e983c0169a0918987a40ba
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:24bd919aa1dde395f929d897743f9235fd6023e017e983c0169a0918987a40ba?se=2022-12-05T22%3A15%3A00Z&sig=FjP2%2FP0TgvmLNfdEODxbrCcxTRW5ug%2FpfdMknVES%2Fls%3D&sp=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libspatialite/manifests/5.0.1_2
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libspatialite/blobs/sha256:8dc0901eff2763a59d1ddc22f3ed19ef1a1b706ba2d4069a092e1c86e730db91
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:8dc0901eff2763a59d1ddc22f3ed19ef1a1b706ba2d4069a092e1c86e730db91?se=2022-12-05T22%3A15%3A00Z&sig=d8qfF48Hg3ANxZyvK4TJzJYk%2FP5m3NLv%2FjO8VbNvCw4%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/netcdf/manifests/4.9.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/netcdf/blobs/sha256:f4a3da85ae0c0534fbdc08b93a2aafd9f68db08d8678081474cd7a8285fa8818
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:f4a3da85ae0c0534fbdc08b93a2aafd9f68db08d8678081474cd7a8285fa8818?se=2022-12-05T22%3A15%3A00Z&sig=ez536rfmydVLGtsko4BEI2Q4mOGlmzZScM6%2FpnRtJuw%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/openblas/manifests/0.3.21
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/openblas/blobs/sha256:87d3c5c201cffc4daf672e9976eb19daa59b690e6fa247e68ad1f0c9df95d790
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:87d3c5c201cffc4daf672e9976eb19daa59b690e6fa247e68ad1f0c9df95d790?se=2022-12-05T22%3A15%3A00Z&sig=bi8I4C5FdNn6DMubmMqKCZSP4ElMz4bzGTdqov4seuw%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/numpy/manifests/1.23.5
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/numpy/blobs/sha256:0ecd3124146d911a9445fbb1da7465ea88d29a5402cc8e8ebc9da6205f91d070
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:0ecd3124146d911a9445fbb1da7465ea88d29a5402cc8e8ebc9da6205f91d070?se=2022-12-05T22%3A15%3A00Z&sig=E5eL0%2BHHFqi5i%2F8Q1KDB3O6ggpeNZHR8ovUS7y2XSKI%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/nspr/manifests/4.35
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/nspr/blobs/sha256:466fd0ffb45153ddc9ce8d882440bc3f2c9c2e1e5ff1caf00ea3e5a7f2dbff0c
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:466fd0ffb45153ddc9ce8d882440bc3f2c9c2e1e5ff1caf00ea3e5a7f2dbff0c?se=2022-12-05T22%3A15%3A00Z&sig=x8IzXyF8Xfl5ZHyCVhFYDhZk4YG2%2Be%2BJMjeQQTheLjQ%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/nss/manifests/3.85
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/nss/blobs/sha256:69ef6496975f4f198ea7b65f05b2a01bfcaf1d5c20e1c411ae8e79df704889b5
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:69ef6496975f4f198ea7b65f05b2a01bfcaf1d5c20e1c411ae8e79df704889b5?se=2022-12-05T22%3A15%3A00Z&sig=ezDrEGGPzAYWggNSrwNekgCAdohLnkh%2B8tAOsggaMIk%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/poppler/manifests/22.12.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/poppler/blobs/sha256:bb025511cc1b749bcccc7430a7c0dc43a1d6dd9518420e706040490d1ffaaa33
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:bb025511cc1b749bcccc7430a7c0dc43a1d6dd9518420e706040490d1ffaaa33?se=2022-12-05T22%3A15%3A00Z&sig=TAiI6%2FF2ln%2BfVkcuC%2By88N%2BKPzJz%2BDQNNYKlISqpXhY%3D
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/xerces-c/manifests/3.2.4
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/xerces-c/blobs/sha256:55a07ff428b5caeafc5628df1af7b39ac340d3ec1130bbaf5474363a374c01db
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:55a07ff428b5caeafc5628df1af7b39ac340d3ec1130bbaf5474363a374c01db?se=2022-12-05T22%3A15%3A00Z&sig=uBmj6nJUu3hxECA35Io3dpD%2FM%2BJ3oqpqByRK0V0rOt0%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/gdal/manifests/3.5.3_2
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/gdal/blobs/sha256:8a1820762677f86c073a6316b1e3d10a7b52f7bd506f46e7fdc4f0d66e74a671
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:8a1820762677f86c073a6316b1e3d10a7b52f7bd506f46e7fdc4f0d66e74a671?se=2022-12-05T22%3A15%3A00Z&sig=a%2BYIFyFu61yfWvO%2B9cEIV%2BKszxmfu4vpqCSmmlQiTzU%3D&sp=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/boost/manifests/1.80.0
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/boost/blobs/sha256:147b71e637f2ab396c580f62f8a16917010efa4494be26d6ec4a3339f980087f
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:147b71e637f2ab396c580f62f8a16917010efa4494be26d6ec4a3339f980087f?se=2022-12-05T22%3A15%3A00Z&sig=DtHDhFtiMqWTU8pVVDXm0q94epWWHCOzr%2BZf8kHziaI%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/cgal/manifests/5.5.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/cgal/blobs/sha256:897f5c47b844d9497988a93992966d7927917e86a12ae91a1f217480bac7727e
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:897f5c47b844d9497988a93992966d7927917e86a12ae91a1f217480bac7727e?se=2022-12-05T22%3A20%3A00Z&sig=5RWd0Y889T2IRZNNEOjElPR3R89M0ShITj8UE%2FH6U%2Bo%3D&sp=r&
+######################################################################## 100.0%
+==> Installing dependencies for qt@5: xz
+==> Installing qt@5 dependency: xz
+==> Pouring xz--5.2.9.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/xz/5.2.9: 95 files, 1.5MB
+==> Installing qt@5
+==> Pouring qt@5--5.15.7.arm64_monterey.bottle.tar.gz
+==> Caveats
+We agreed to the Qt open source license for you.
+If this is unacceptable you should uninstall.
+
+qt@5 is keg-only, which means it was not symlinked into /opt/homebrew,
+because this is an alternate version of another formula.
+
+If you need to have qt@5 first in your PATH, run:
+  echo 'export PATH="/opt/homebrew/opt/qt@5/bin:$PATH"' >> ~/.zshrc
+
+For compilers to find qt@5 you may need to set:
+  export LDFLAGS="-L/opt/homebrew/opt/qt@5/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/qt@5/include"
+
+==> Summary
+🍺  /opt/homebrew/Cellar/qt@5/5.15.7: 10,847 files, 344.4MB
+==> Running `brew cleanup qt@5`...
+Disable this behaviour by setting HOMEBREW_NO_INSTALL_CLEANUP.
+Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).
+==> Installing dependencies for gdal: cfitsio, popt, epsilon, expat, freexl, geos, libaec, hdf5, libdap, proj, libgeotiff, krb5, libpq, librttopo, minizip, libspatialite, netcdf, openblas, numpy, nspr, nss, poppler and xerces-c
+==> Installing gdal dependency: cfitsio
+==> Pouring cfitsio--4.1.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/cfitsio/4.1.0: 17 files, 3.1MB
+==> Installing gdal dependency: popt
+==> Pouring popt--1.19.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/popt/1.19: 10 files, 192.0KB
+==> Installing gdal dependency: epsilon
+==> Pouring epsilon--0.9.2.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/epsilon/0.9.2: 17 files, 428.2KB
+==> Installing gdal dependency: expat
+==> Pouring expat--2.5.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/expat/2.5.0: 21 files, 609.2KB
+==> Installing gdal dependency: freexl
+==> Pouring freexl--1.0.6.arm64_monterey.bottle.1.tar.gz
+🍺  /opt/homebrew/Cellar/freexl/1.0.6: 113 files, 963.0KB
+==> Installing gdal dependency: geos
+==> Pouring geos--3.11.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/geos/3.11.1: 464 files, 11MB
+==> Installing gdal dependency: libaec
+==> Pouring libaec--1.0.6.arm64_monterey.bottle.tar.gz
+Warning: These files were overwritten during the `brew link` step:
+/opt/homebrew/include/szlib.h
+/opt/homebrew/lib/libsz.2.dylib
+/opt/homebrew/lib/libsz.a
+/opt/homebrew/lib/libsz.dylib
+
+They have been backed up to: /Users/malcolm/Library/Caches/Homebrew/Backup
+==> Summary
+🍺  /opt/homebrew/Cellar/libaec/1.0.6: 20 files, 266.7KB
+==> Installing gdal dependency: hdf5
+==> Pouring hdf5--1.12.2_2.arm64_monterey.bottle.1.tar.gz
+🍺  /opt/homebrew/Cellar/hdf5/1.12.2_2: 273 files, 20.7MB
+==> Installing gdal dependency: libdap
+==> Pouring libdap--3.20.11.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/libdap/3.20.11: 163 files, 6.6MB
+==> Installing gdal dependency: proj
+==> Pouring proj--9.1.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/proj/9.1.1: 438 files, 596.0MB
+==> Installing gdal dependency: libgeotiff
+==> Pouring libgeotiff--1.7.1_2.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/libgeotiff/1.7.1_2: 39 files, 820.5KB
+==> Installing gdal dependency: krb5
+==> Pouring krb5--1.20.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/krb5/1.20.1: 162 files, 5.6MB
+==> Installing gdal dependency: libpq
+==> Pouring libpq--15.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/libpq/15.1: 2,367 files, 28.4MB
+==> Installing gdal dependency: librttopo
+==> Pouring librttopo--1.1.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/librttopo/1.1.0: 12 files, 1MB
+==> Installing gdal dependency: minizip
+==> Pouring minizip--1.2.13.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/minizip/1.2.13: 14 files, 382.9KB
+==> Installing gdal dependency: libspatialite
+==> Pouring libspatialite--5.0.1_2.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/libspatialite/5.0.1_2: 40 files, 28.2MB
+==> Installing gdal dependency: netcdf
+==> Pouring netcdf--4.9.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/netcdf/4.9.0: 30 files, 3.6MB
+==> Installing gdal dependency: openblas
+==> Pouring openblas--0.3.21.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/openblas/0.3.21: 23 files, 56.2MB
+==> Installing gdal dependency: numpy
+==> Pouring numpy--1.23.5.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/numpy/1.23.5: 1,732 files, 38.2MB
+==> Installing gdal dependency: nspr
+==> Pouring nspr--4.35.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/nspr/4.35: 86 files, 1.3MB
+==> Installing gdal dependency: nss
+==> Pouring nss--3.85.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/nss/3.85: 211 files, 18.7MB
+==> Installing gdal dependency: poppler
+==> Pouring poppler--22.12.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/poppler/22.12.0: 464 files, 28.3MB
+==> Installing gdal dependency: xerces-c
+==> Pouring xerces-c--3.2.4.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/xerces-c/3.2.4: 1,686 files, 37.8MB
+==> Installing gdal
+==> Pouring gdal--3.5.3_2.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/gdal/3.5.3_2: 422 files, 60.7MB
+==> Running `brew cleanup gdal`...
+==> Installing dependencies for cgal: boost
+==> Installing cgal dependency: boost
+==> Pouring boost--1.80.0.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/boost/1.80.0: 15,568 files, 471.4MB
+==> Installing cgal
+==> Pouring cgal--5.5.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/cgal/5.5.1: 3,681 files, 38.4MB
+==> Running `brew cleanup cgal`...
+Warning: Use sdl12-compat instead of deprecated sdl
+==> Upgrading 5 dependents of upgraded formulae:
+Disable this behaviour by setting HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK.
+Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).
+awscli 2.9.3 -> 2.9.4, ffmpeg 5.1.2 -> 5.1.2_1, imagemagick 7.1.0-52 -> 7.1.0-53, llvm 15.0.5 -> 15.0.6, vim 9.0.0950 -> 9.0.1000
+==> Downloading https://ghcr.io/v2/homebrew/core/llvm/manifests/15.0.6
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/llvm/blobs/sha256:8f80aaae06587c12082b37b06282f5b21efcdf85dc0ee50251c2906e7f64026c
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:8f80aaae06587c12082b37b06282f5b21efcdf85dc0ee50251c2906e7f64026c?se=2022-12-05T22%3A25%3A00Z&sig=aqKWE%2FswhNY4Exrmn21uofFApRgnjxU9IH562uSCExg%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/awscli/manifests/2.9.4
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/awscli/blobs/sha256:f490937276c1cd20e6b781a9879e55130799b8f92c0e089a59aa09ade8e5adfd
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:f490937276c1cd20e6b781a9879e55130799b8f92c0e089a59aa09ade8e5adfd?se=2022-12-05T22%3A35%3A00Z&sig=yknxBSPkwuVjn8q62bFT3yVWozhSBJJsvI6Vn7haoyU%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/rav1e/manifests/0.6.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/rav1e/blobs/sha256:cf02db9e7de5fde855205de5c4712ea332a6165b155063bca322bfc292704b2d
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:cf02db9e7de5fde855205de5c4712ea332a6165b155063bca322bfc292704b2d?se=2022-12-05T22%3A40%3A00Z&sig=3yFpJlfQhigSfZsjNhgWcOEj0lyFQwrOwoeDT7KA%2Bc0%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/rubberband/manifests/3.1.2
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/rubberband/blobs/sha256:fe6363f0a2cc447e10c819e1c7bac33ccbb5d5bfb0a239eb8573e4d55ba28b3f
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:fe6363f0a2cc447e10c819e1c7bac33ccbb5d5bfb0a239eb8573e4d55ba28b3f?se=2022-12-05T22%3A40%3A00Z&sig=qo7TxEIli1HvG4q4for9pdq3CVv%2BJ5pFkxkRMgrtwGI%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/sdl2/manifests/2.26.1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/sdl2/blobs/sha256:d1bc5818ab60ed8b1b3420bc36fb7a0697cc57ee382f4cd6d2d65680059e38c9
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:d1bc5818ab60ed8b1b3420bc36fb7a0697cc57ee382f4cd6d2d65680059e38c9?se=2022-12-05T22%3A40%3A00Z&sig=TZBmPe4BUgwElx5P9yyWLurMZe8cPBP5K0IsllkuHWk%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/ffmpeg/manifests/5.1.2_1
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/ffmpeg/blobs/sha256:3afae87e1e1811edd4c10d394aebcfcd1e0cc045cd784d384ac5a8dbcbe133db
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:3afae87e1e1811edd4c10d394aebcfcd1e0cc045cd784d384ac5a8dbcbe133db?se=2022-12-05T22%3A40%3A00Z&sig=eaBYn9T4s8FMyyEqonU1sLs5%2F2rESuOkugn2G4Z%2BIRc%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libomp/manifests/15.0.6
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/libomp/blobs/sha256:5c690eba8a95c37ec0f9c2052725e2a4dcf1c91fe8ee66a615f94365beb57608
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:5c690eba8a95c37ec0f9c2052725e2a4dcf1c91fe8ee66a615f94365beb57608?se=2022-12-05T22%3A40%3A00Z&sig=fL2tV4V1NUh8D%2B6LOx4vR%2F4JNkIJP7jUqTfhTer6leI%3D&sp=r&
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/imagemagick/manifests/7.1.0-53
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/imagemagick/blobs/sha256:7b726bee4d9de00a90a89481142c1610a286b4d463f54bb44785d5d7ddb16b00
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:7b726bee4d9de00a90a89481142c1610a286b4d463f54bb44785d5d7ddb16b00?se=2022-12-05T22%3A40%3A00Z&sig=CAE5eip7LnZI5Cg1LVdN%2Bkfyk7NUSkrLHbPQpVA6nd8%3D&sp=r&sp
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/ruby/manifests/3.1.3
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/ruby/blobs/sha256:51db346a102e3985fb4419b5a44a42f081099bd2c2aa559e2c32c3e77415debb
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:51db346a102e3985fb4419b5a44a42f081099bd2c2aa559e2c32c3e77415debb?se=2022-12-05T22%3A40%3A00Z&sig=VGEmFmbhYVYWoR37ITaU7EPQL2NJM8DfIpui0Xm4SoM%3D&sp=r&spr=
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/vim/manifests/9.0.1000
+######################################################################## 100.0%
+==> Downloading https://ghcr.io/v2/homebrew/core/vim/blobs/sha256:5e89d883faf4d3eb48096d189f8b231ab80c4ea74075a00906fbeb23ffeec850
+==> Downloading from https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256:5e89d883faf4d3eb48096d189f8b231ab80c4ea74075a00906fbeb23ffeec850?se=2022-12-05T22%3A40%3A00Z&sig=kEWDsVWAhV6uPy7lQslgULV6f%2FYaGlaoxfxiPRYqED4%3D&sp=r&sp
+######################################################################## 100.0%
+==> Upgrading llvm
+  15.0.5 -> 15.0.6
+
+==> Pouring llvm--15.0.6.arm64_monterey.bottle.tar.gz
+==> Caveats
+To use the bundled libc++ please add the following LDFLAGS:
+  LDFLAGS="-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++"
+
+llvm is keg-only, which means it was not symlinked into /opt/homebrew,
+because macOS already provides this software and installing another version in
+parallel can cause all kinds of trouble.
+
+If you need to have llvm first in your PATH, run:
+  echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
+
+For compilers to find llvm you may need to set:
+  export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+
+==> Summary
+🍺  /opt/homebrew/Cellar/llvm/15.0.6: 6,411 files, 1.3GB
+==> Running `brew cleanup llvm`...
+Removing: /opt/homebrew/Cellar/llvm/15.0.5... (6,411 files, 1.3GB)
+Removing: /Users/malcolm/Library/Caches/Homebrew/llvm--15.0.5... (363.2MB)
+==> Upgrading awscli
+  2.9.3 -> 2.9.4
+
+==> Pouring awscli--2.9.4.arm64_monterey.bottle.tar.gz
+==> Caveats
+The "examples" directory has been installed to:
+  /opt/homebrew/share/awscli/examples
+
+zsh completions and functions have been installed to:
+  /opt/homebrew/share/zsh/site-functions
+==> Summary
+🍺  /opt/homebrew/Cellar/awscli/2.9.4: 12,948 files, 112.7MB
+==> Running `brew cleanup awscli`...
+Removing: /opt/homebrew/Cellar/awscli/2.9.3... (12,941 files, 112.5MB)
+Removing: /Users/malcolm/Library/Caches/Homebrew/awscli--2.9.3... (18.9MB)
+==> Upgrading ffmpeg
+  5.1.2 -> 5.1.2_1
+
+==> Installing dependencies for ffmpeg: rav1e, rubberband and sdl2
+==> Installing ffmpeg dependency: rav1e
+==> Pouring rav1e--0.6.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/rav1e/0.6.1: 14 files, 130.3MB
+==> Installing ffmpeg dependency: rubberband
+==> Pouring rubberband--3.1.2.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/rubberband/3.1.2: 13 files, 1.6MB
+==> Installing ffmpeg dependency: sdl2
+==> Pouring sdl2--2.26.1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/sdl2/2.26.1: 93 files, 6.4MB
+==> Installing ffmpeg
+==> Pouring ffmpeg--5.1.2_1.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/ffmpeg/5.1.2_1: 282 files, 49.3MB
+==> Running `brew cleanup ffmpeg`...
+Removing: /opt/homebrew/Cellar/ffmpeg/5.1.2... (282 files, 49.3MB)
+==> Upgrading imagemagick
+  7.1.0-52 -> 7.1.0-53
+
+==> Installing dependencies for imagemagick: libomp
+==> Installing imagemagick dependency: libomp
+==> Pouring libomp--15.0.6.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/libomp/15.0.6: 7 files, 1.6MB
+==> Installing imagemagick
+==> Pouring imagemagick--7.1.0-53.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/imagemagick/7.1.0-53: 807 files, 31.0MB
+==> Running `brew cleanup imagemagick`...
+Removing: /opt/homebrew/Cellar/imagemagick/7.1.0-52... (805 files, 30.8MB)
+Removing: /Users/malcolm/Library/Caches/Homebrew/imagemagick--7.1.0-52... (10.3MB)
+==> Upgrading vim
+  9.0.0950 -> 9.0.1000
+
+==> Installing dependencies for vim: ruby
+==> Installing vim dependency: ruby
+==> Pouring ruby--3.1.3.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/ruby/3.1.3: 16,149 files, 43.3MB
+==> Installing vim
+==> Pouring vim--9.0.1000.arm64_monterey.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/vim/9.0.1000: 2,123 files, 38.1MB
+==> Running `brew cleanup vim`...
+Removing: /opt/homebrew/Cellar/vim/9.0.0950... (2,123 files, 38.1MB)
+Removing: /Users/malcolm/Library/Caches/Homebrew/vim--9.0.0950... (12.6MB)
+==> Checking for dependents of upgraded formulae...
+Warning: Use sdl12-compat instead of deprecated sdl
+==> No broken dependents to reinstall!
+==> Caveats
+==> qt@5
+We agreed to the Qt open source license for you.
+If this is unacceptable you should uninstall.
+
+qt@5 is keg-only, which means it was not symlinked into /opt/homebrew,
+because this is an alternate version of another formula.
+
+If you need to have qt@5 first in your PATH, run:
+  echo 'export PATH="/opt/homebrew/opt/qt@5/bin:$PATH"' >> ~/.zshrc
+
+For compilers to find qt@5 you may need to set:
+  export LDFLAGS="-L/opt/homebrew/opt/qt@5/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/qt@5/include"
+
+==> llvm
+To use the bundled libc++ please add the following LDFLAGS:
+  LDFLAGS="-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++"
+
+llvm is keg-only, which means it was not symlinked into /opt/homebrew,
+because macOS already provides this software and installing another version in
+parallel can cause all kinds of trouble.
+
+If you need to have llvm first in your PATH, run:
+  echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
+
+For compilers to find llvm you may need to set:
+  export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+
+==> awscli
+The "examples" directory has been installed to:
+  /opt/homebrew/share/awscli/examples
+
+zsh completions and functions have been installed to:
+  /opt/homebrew/share/zsh/site-functions
+128.52s user 208.28s system 11% cpu 49:59.25s total
+Time: 0h:49m:59s
+
+~/dev/bossjones/pytorch-lab main* 50m 0s
+❯ tmux-copy-screen
+

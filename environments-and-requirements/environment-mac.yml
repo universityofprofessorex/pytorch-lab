@@ -1,0 +1,69 @@
+name: pytorch-lab3
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+  - fastchan
+dependencies:
+  - python=3.10
+  - pip>=22.2
+  - pytorch=1.12
+  - pytorch-lightning=1.7
+  - torchvision=0.13
+  - torchmetrics=0.10
+  - torch-fidelity=0.3
+  - torchtext=0.13
+  - torchvision=0.13
+  - fastai=2.7.10
+
+  # I suggest to keep the other deps sorted for convenience.
+  # To determine what the latest versions should be, run:
+  #
+  # ```shell
+  # sed -E 's/invokeai/invokeai-updated/;20,99s/- ([^=]+)==.+/- \1/' environment-mac.yml > environment-mac-updated.yml
+  # CONDA_SUBDIR=osx-arm64 conda env create -f environment-mac-updated.yml && conda list -n invokeai-updated | awk ' {print "  - " $1 "==" $2;} '
+  # ```
+
+  - coloredlogs=15.0
+  - eventlet
+  - humanfriendly=10.0
+  - imageio=2.21
+  - imageio-ffmpeg=0.4
+  - imgaug=0.4
+  - numpy=1.23
+  - openh264=2.3
+  - pudb=2019.2
+  - py-opencv=4.6
+  - scipy=1.9
+  - tensorboard=2.10
+  - transformers=4.23
+  - matplotlib=3.6.2
+  - scikit-image
+  - scikit-learn
+  - pip:
+      - tqdm
+      - better_exceptions
+      - torchsummary
+      - bpython
+      - imutils
+      - uritools
+      - rich[jupyter]
+      - icecream
+      - black
+      - pylint
+      - autopep8
+      - autoflake
+      - pdbpp
+      - mlxtend
+      - torchinfo
+      - invoke
+      - logging_tree
+      - loguru
+      - pydantic[email]
+      - picklescan
+      - git+https://github.com/openai/CLIP.git@main#egg=clip
+      - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
+      - viztracer
+      - pdbr
+variables:
+  PYTORCH_ENABLE_MPS_FALLBACK: 1

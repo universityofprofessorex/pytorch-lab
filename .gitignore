@@ -128,3 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 raw_dataset
+.vscode
+environment.yml
