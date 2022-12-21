@@ -124,6 +124,7 @@ def download_and_predict(
     model: torch.nn.Module,
     data_path: pathlib.PosixPath,
     class_names: List[str],
+    device: torch.device = None,
 ):
     # Download custom image
     urlparse(url).path
@@ -146,7 +147,7 @@ def download_and_predict(
 
     # Predict on custom image
     pred_and_plot_image(
-        model=model, image_path=custom_image_path, class_names=class_names
+        model=model, image_path=custom_image_path, class_names=class_names, device=device
     )
 
 
@@ -250,6 +251,30 @@ def run_confusion_matrix(
     cmat, type(cmat)
 
     show_confusion_matrix_helper(cmat, class_names)
+
+
+def run_validate(
+    model: torch.nn.Module,
+    test_dataloader: torch.utils.data.DataLoader,
+    device: torch.device,
+    loss_fn: torch.nn.Module
+):
+    print(" Running in evaluate mode ...")
+
+    start_time = timer()
+    # Setup testing and save the results
+    test_loss, test_acc = engine.test_step(
+        model=model,
+        dataloader=test_dataloader,
+        loss_fn=loss_fn,
+        device=device
+    )
+
+    # End the timer and print out how long it took
+    end_time = timer()
+    print(f"[INFO] Total testing time: {end_time-start_time:.3f} seconds")
+    ic(test_loss)
+    ic(test_acc)
 
 
 def print_train_time(start: float, end: float, device: torch.device = None):
@@ -518,6 +543,13 @@ parser.add_argument(
     help="use pre-trained model",
 )
 parser.add_argument(
+    "--summary",
+    dest="summary",
+    action="store_true",
+    default=True,
+    help="Get model summary output",
+)
+parser.add_argument(
     "--world-size",
     default=-1,
     type=int,
@@ -600,6 +632,9 @@ def main():
 def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     global best_acc1
     args.gpu = gpu
+
+    y_preds = []
+    y_pred_tensor = None
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
@@ -836,31 +871,54 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     ic(next(model.parameters()).device)
 
-    # get_model_summary(
-    #     model=model,
-    #     input_size=(
-    #         32,
-    #         3,
-    #         224,
-    #         224,
-    #     ),  # make sure this is "input_size", not "input_shape"
-    #     # col_names=["input_size"], # uncomment for smaller output
-    #     col_names=["input_size", "output_size", "num_params", "trainable"],
-    #     col_width=20,
-    #     row_settings=["var_names"],
-    # )
+    if args.summary:
+        print(" Running model summary ...")
+        get_model_summary(
+            model=model,
+            input_size=(
+                32,
+                3,
+                224,
+                224,
+            ),  # make sure this is "input_size", not "input_shape"
+            # col_names=["input_size"], # uncomment for smaller output
+            col_names=["input_size", "output_size", "num_params", "trainable"],
+            col_width=20,
+            row_settings=["var_names"],
+        )
+        return
+
 
     if args.evaluate:
-        validate(val_loader, model, criterion, args)
+        # validate(val_loader, model, criterion, args)
+        run_validate(model, test_dataloader, device, criterion)
+        # print(" Running in evaluate mode ...")
+
+        # start_time = timer()
+        # # Setup testing and save the results
+        # test_loss, test_acc = engine.test_step(
+        #     model=model,
+        #     dataloader=test_dataloader,
+        #     loss_fn=criterion,
+        #     device=device
+        # )
+
+        # # End the timer and print out how long it took
+        # end_time = timer()
+        # print(f"[INFO] Total testing time: {end_time-start_time:.3f} seconds")
+        # ic(test_loss)
+        # ic(test_acc)
         return
 
     if args.download_and_predict:
+        print(" Running download and predict command ...")
         download_and_predict(
-            args.download_and_predict, model, Path(args.data), class_names=class_names
+            args.download_and_predict, model, Path(args.data), class_names=class_names, device=device
         )
         return
 
     if args.predict:
+        print(" Running predict command ...")
         # pred_and_plot_image(model: torch.nn.Module,
         #                 image_path: str,
         #                 class_names: List[str],
@@ -898,11 +956,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     end_time = timer()
     print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
 
-    path_to_model = save_model_to_disk("ScreenNetV1", model)
-    loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names
-    )
-    rich.inspect(loaded_model_for_inference, all=True)
+    path_to_model, loaded_model_for_inference = run_get_model_for_inference(model, device, class_names)
 
     # for epoch in range(args.start_epoch, args.epochs):
     #     if args.distributed:
@@ -936,191 +990,191 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     #         )
 
 
-def train(
-    train_loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    criterion: torch.nn.Module,
-    optimizer: torch.optim.Optimizer,
-    epoch: int,
-    device: torch.device,
-    args: argparse.Namespace,
-) -> Tuple[float, float]:
-    batch_time = AverageMeter("Time", ":6.3f")
-    data_time = AverageMeter("Data", ":6.3f")
-    losses = AverageMeter("Loss", ":.4e")
-    top1 = AverageMeter("Acc@1", ":6.2f")
-    top5 = AverageMeter("Acc@5", ":6.2f")
-    progress = ProgressMeter(
-        len(train_loader),
-        [batch_time, data_time, losses, top1, top5],
-        prefix="Epoch: [{}]".format(epoch),
-    )
+# def train(
+#     train_loader: torch.utils.data.DataLoader,
+#     model: torch.nn.Module,
+#     criterion: torch.nn.Module,
+#     optimizer: torch.optim.Optimizer,
+#     epoch: int,
+#     device: torch.device,
+#     args: argparse.Namespace,
+# ) -> Tuple[float, float]:
+#     batch_time = AverageMeter("Time", ":6.3f")
+#     data_time = AverageMeter("Data", ":6.3f")
+#     losses = AverageMeter("Loss", ":.4e")
+#     top1 = AverageMeter("Acc@1", ":6.2f")
+#     top5 = AverageMeter("Acc@5", ":6.2f")
+#     progress = ProgressMeter(
+#         len(train_loader),
+#         [batch_time, data_time, losses, top1, top5],
+#         prefix="Epoch: [{}]".format(epoch),
+#     )
 
-    # switch to train mode
-    model.train()
+#     # switch to train mode
+#     model.train()
 
-    # Setup train loss and train accuracy values
-    train_loss, train_acc = 0, 0
+#     # Setup train loss and train accuracy values
+#     train_loss, train_acc = 0, 0
 
-    end = time.time()
-    for i, (images, target) in enumerate(train_loader):
-        # measure data loading time
-        data_time.update(time.time() - end)
+#     end = time.time()
+#     for i, (images, target) in enumerate(train_loader):
+#         # measure data loading time
+#         data_time.update(time.time() - end)
 
-        # Send data to target device
-        # move data to the same device as model
-        images: torch.Tensor
-        target: torch.Tensor
-        images = images.to(device, non_blocking=True)
-        target = target.to(device, non_blocking=True)
+#         # Send data to target device
+#         # move data to the same device as model
+#         images: torch.Tensor
+#         target: torch.Tensor
+#         images = images.to(device, non_blocking=True)
+#         target = target.to(device, non_blocking=True)
 
-        ic(next(model.parameters()).device)
+#         ic(next(model.parameters()).device)
 
-        # 1. Forward pass (logits)
-        y_pred: torch.Tensor
-        output: torch.Tensor
-        y_pred = output = model(images)
+#         # 1. Forward pass (logits)
+#         y_pred: torch.Tensor
+#         output: torch.Tensor
+#         y_pred = output = model(images)
 
-        # 2. Calculate  and accumulate loss
-        # compute output
-        loss: torch.Tensor
-        loss = criterion(output, target)
+#         # 2. Calculate  and accumulate loss
+#         # compute output
+#         loss: torch.Tensor
+#         loss = criterion(output, target)
 
-        # measure accuracy and record loss
-        acc1, acc5 = ic(accuracy(output, target, topk=(1, 5)))
-        losses.update(loss.item(), images.size(0))
-        top1.update(acc1[0], images.size(0))
-        top5.update(acc5[0], images.size(0))
+#         # measure accuracy and record loss
+#         acc1, acc5 = ic(accuracy(output, target, topk=(1, 5)))
+#         losses.update(loss.item(), images.size(0))
+#         top1.update(acc1[0], images.size(0))
+#         top5.update(acc5[0], images.size(0))
 
-        # compute gradient and do SGD step
-        # 3. Optimizer zero grad
-        optimizer.zero_grad()
+#         # compute gradient and do SGD step
+#         # 3. Optimizer zero grad
+#         optimizer.zero_grad()
 
-        # 4. Loss backward
-        loss.backward()
+#         # 4. Loss backward
+#         loss.backward()
 
-        # 5. Optimizer step
-        optimizer.step()
+#         # 5. Optimizer step
+#         optimizer.step()
 
-        # Calculate and accumulate accuracy metric across all batches
-        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
-        train_acc += (y_pred_class == target).sum().item() / len(y_pred)
+#         # Calculate and accumulate accuracy metric across all batches
+#         y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+#         train_acc += (y_pred_class == target).sum().item() / len(y_pred)
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+#         # measure elapsed time
+#         batch_time.update(time.time() - end)
+#         end = time.time()
 
-        if i % args.print_freq == 0:
-            progress.display(i + 1)
+#         if i % args.print_freq == 0:
+#             progress.display(i + 1)
 
-    # Adjust metrics to get average loss and accuracy per batch
-    train_loss = train_loss / len(train_loader)
-    train_acc = train_acc / len(train_loader)
-    return train_loss, train_acc
+#     # Adjust metrics to get average loss and accuracy per batch
+#     train_loss = train_loss / len(train_loader)
+#     train_acc = train_acc / len(train_loader)
+#     return train_loss, train_acc
 
 
-def validate(
-    val_loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    criterion: torch.nn.Module,
-    args: argparse.Namespace,
-) -> Tuple[int, float, float]:
-    def run_validate(loader, base_progress=0):
+# def validate(
+#     val_loader: torch.utils.data.DataLoader,
+#     model: torch.nn.Module,
+#     criterion: torch.nn.Module,
+#     args: argparse.Namespace,
+# ) -> Tuple[int, float, float]:
+#     def run_validate(loader, base_progress=0):
 
-        # Setup test loss and test accuracy values
-        test_loss, test_acc = 0, 0
+#         # Setup test loss and test accuracy values
+#         test_loss, test_acc = 0, 0
 
-        # Turn on no grad context manager
-        # with torch.no_grad():
-        with torch.inference_mode():
-            end = time.time()
-            # Loop through DataLoader batches
-            for i, (images, target) in enumerate(loader):
-                i = base_progress + i
-                if args.gpu is not None and torch.cuda.is_available():
-                    images = images.cuda(args.gpu, non_blocking=True)
-                    ic("GPU mode")
-                if torch.backends.mps.is_available():
-                    images = images.to("mps")
-                    target = target.to("mps")
-                    ic("MPS mode")
-                if torch.cuda.is_available():
-                    target = target.cuda(args.gpu, non_blocking=True)
-                    ic("Cuda mode")
+#         # Turn on no grad context manager
+#         # with torch.no_grad():
+#         with torch.inference_mode():
+#             end = time.time()
+#             # Loop through DataLoader batches
+#             for i, (images, target) in enumerate(loader):
+#                 i = base_progress + i
+#                 if args.gpu is not None and torch.cuda.is_available():
+#                     images = images.cuda(args.gpu, non_blocking=True)
+#                     ic("GPU mode")
+#                 if torch.backends.mps.is_available():
+#                     images = images.to("mps")
+#                     target = target.to("mps")
+#                     ic("MPS mode")
+#                 if torch.cuda.is_available():
+#                     target = target.cuda(args.gpu, non_blocking=True)
+#                     ic("Cuda mode")
 
-                # compute output
-                # 1. Forward pass
-                test_pred_logits = output = model(images)
+#                 # compute output
+#                 # 1. Forward pass
+#                 test_pred_logits = output = model(images)
 
-                # 2. Calculate and accumulate loss
-                loss = criterion(output, target)
-                test_loss += loss.item()
+#                 # 2. Calculate and accumulate loss
+#                 loss = criterion(output, target)
+#                 test_loss += loss.item()
 
-                # measure accuracy and record loss
-                acc1, acc5 = accuracy(output, target, topk=(1, 5))
-                losses.update(loss.item(), images.size(0))
-                top1.update(acc1[0], images.size(0))
-                top5.update(acc5[0], images.size(0))
+#                 # measure accuracy and record loss
+#                 acc1, acc5 = accuracy(output, target, topk=(1, 5))
+#                 losses.update(loss.item(), images.size(0))
+#                 top1.update(acc1[0], images.size(0))
+#                 top5.update(acc5[0], images.size(0))
 
-                # Calculate and accumulate accuracy
-                test_pred_labels = test_pred_logits.argmax(dim=1)
-                test_acc += (test_pred_labels == target).sum().item() / len(
-                    test_pred_labels
-                )
+#                 # Calculate and accumulate accuracy
+#                 test_pred_labels = test_pred_logits.argmax(dim=1)
+#                 test_acc += (test_pred_labels == target).sum().item() / len(
+#                     test_pred_labels
+#                 )
 
-                # measure elapsed time
-                batch_time.update(time.time() - end)
-                end = time.time()
+#                 # measure elapsed time
+#                 batch_time.update(time.time() - end)
+#                 end = time.time()
 
-                if i % args.print_freq == 0:
-                    progress.display(i + 1)
+#                 if i % args.print_freq == 0:
+#                     progress.display(i + 1)
 
-    batch_time = AverageMeter("Time", ":6.3f", Summary.NONE)
-    losses = AverageMeter("Loss", ":.4e", Summary.NONE)
-    top1 = AverageMeter("Acc@1", ":6.2f", Summary.AVERAGE)
-    top5 = AverageMeter("Acc@5", ":6.2f", Summary.AVERAGE)
-    progress = ProgressMeter(
-        len(val_loader)
-        + (
-            args.distributed
-            and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))
-        ),
-        [batch_time, losses, top1, top5],
-        prefix="Test: ",
-    )
+#     batch_time = AverageMeter("Time", ":6.3f", Summary.NONE)
+#     losses = AverageMeter("Loss", ":.4e", Summary.NONE)
+#     top1 = AverageMeter("Acc@1", ":6.2f", Summary.AVERAGE)
+#     top5 = AverageMeter("Acc@5", ":6.2f", Summary.AVERAGE)
+#     progress = ProgressMeter(
+#         len(val_loader)
+#         + (
+#             args.distributed
+#             and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))
+#         ),
+#         [batch_time, losses, top1, top5],
+#         prefix="Test: ",
+#     )
 
-    # switch to evaluate mode
-    model.eval()
+#     # switch to evaluate mode
+#     model.eval()
 
-    run_validate(val_loader)
-    if args.distributed:
-        top1.all_reduce()
-        top5.all_reduce()
+#     run_validate(val_loader)
+#     if args.distributed:
+#         top1.all_reduce()
+#         top5.all_reduce()
 
-    if args.distributed and (
-        len(val_loader.sampler) * args.world_size < len(val_loader.dataset)
-    ):
-        aux_val_dataset = Subset(
-            val_loader.dataset,
-            range(len(val_loader.sampler) * args.world_size, len(val_loader.dataset)),
-        )
-        aux_val_loader = torch.utils.data.DataLoader(
-            aux_val_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            num_workers=args.workers,
-            pin_memory=True,
-        )
-        run_validate(aux_val_loader, len(val_loader))
+#     if args.distributed and (
+#         len(val_loader.sampler) * args.world_size < len(val_loader.dataset)
+#     ):
+#         aux_val_dataset = Subset(
+#             val_loader.dataset,
+#             range(len(val_loader.sampler) * args.world_size, len(val_loader.dataset)),
+#         )
+#         aux_val_loader = torch.utils.data.DataLoader(
+#             aux_val_dataset,
+#             batch_size=args.batch_size,
+#             shuffle=False,
+#             num_workers=args.workers,
+#             pin_memory=True,
+#         )
+#         run_validate(aux_val_loader, len(val_loader))
 
-    progress.display_summary()
+#     progress.display_summary()
 
-    # Adjust metrics to get average loss and accuracy per batch
-    test_loss = test_loss / len(val_loader)
-    test_acc = test_acc / len(val_loader)
-    # return test_loss, test_acc
+#     # Adjust metrics to get average loss and accuracy per batch
+#     test_loss = test_loss / len(val_loader)
+#     test_acc = test_acc / len(val_loader)
+#     # return test_loss, test_acc
 
-    return top1.avg, test_loss, test_acc
+#     return top1.avg, test_loss, test_acc
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -1238,6 +1292,9 @@ def get_random_images_from_dataset(
     test_dir: pathlib.PosixPath,
     class_names: List[str],
     num_images_to_plot: int = 3,
+    device: torch.device = None,
+    y_preds: List[torch.Tensor] = [],
+    y_pred_tensor: torch.Tensor = None
 ):
 
     # Get a random list of image paths from test set
@@ -1260,11 +1317,14 @@ def get_random_images_from_dataset(
             class_names=class_names,
             # transform=weights.transforms(), # optionally pass in a specified transform from our pretrained model weights
             image_size=(224, 224),
+            device=device,
+            y_preds=y_preds,
+            y_pred_tensor=y_pred_tensor
         )
 
 
-y_preds = []
-y_pred_tensor = None
+# y_preds = []
+# y_pred_tensor = None
 
 # 1. Take in a trained model, class names, image path, image size, a transform and target device
 def pred_and_plot_image(
@@ -1274,6 +1334,8 @@ def pred_and_plot_image(
     image_size: Tuple[int, int] = (224, 224),
     transform: torchvision.transforms = None,
     device: torch.device = None,
+    y_preds: List[torch.Tensor] = [],
+    y_pred_tensor: torch.Tensor = None
 ):
 
     # 2. Open image
@@ -1328,6 +1390,25 @@ def pred_and_plot_image(
         f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}"
     )
     plt.axis(False)
+
+# wrapper function of common code
+def run_get_model_for_inference(model: torch.nn.Module, device: torch.device, class_names: List[str]) -> Tuple[pathlib.PosixPath, torch.nn.Module]:
+    """wrapper function to load model .pth file from disk
+
+    Args:
+        model (torch.nn.Module): _description_
+        device (torch.device): _description_
+        class_names (List[str]): _description_
+
+    Returns:
+        Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
+    """
+    path_to_model = save_model_to_disk("ScreenNetV1", model)
+    loaded_model_for_inference = load_model_for_inference(
+        path_to_model, device, class_names
+    )
+    rich.inspect(loaded_model_for_inference, all=True)
+    return path_to_model
 
 
 # SOURCE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
