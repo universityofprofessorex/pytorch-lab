@@ -134,6 +134,9 @@ import fastai
 from fastai.data.transforms import get_image_files
 import torchvision.transforms.functional as pytorch_transforms_functional
 
+# SOURCE: https://github.com/pytorch/pytorch/issues/78924
+torch.set_num_threads(1)
+
 
 def get_pil_image_channels(image_path: str) -> int:
     # load pillow image
