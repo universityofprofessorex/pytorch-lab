@@ -40,6 +40,7 @@ import torch
 import torchvision
 
 from rich.traceback import install
+
 install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
@@ -1245,7 +1246,11 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # FIXME: lets make a 3 predictions on some random images
     ic("lets make a 3 predictions on some random images")
     get_random_perdictions_and_plots(
-        loaded_model_for_inference, test_dir=test_dir, class_names=class_names
+        loaded_model_for_inference,
+        test_dir=test_dir,
+        class_names=class_names,
+        transform=auto_transforms,
+        device=device,
     )
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
@@ -1258,6 +1263,8 @@ def get_random_perdictions_and_plots(
     best_model: nn.Module,
     test_dir: pathlib.PosixPath = "",
     class_names: List[str] = None,
+    transform: torchvision.transforms = None,
+    device: torch.device = None,
 ):
     num_images_to_plot = 3
     test_image_path_list = list(
@@ -1274,6 +1281,8 @@ def get_random_perdictions_and_plots(
             image_path=image_path,
             class_names=class_names,
             image_size=(224, 224),
+            transform=transform,
+            device=device,
         )
 
 
@@ -1442,22 +1451,23 @@ def pred_and_plot_image(
     img = Image.open(image_path)
 
     # 3. Create transformation for image (if one doesn't exist)
-    if transform is not None:
-        image_transform = transform
-    else:
-        image_transform = transforms.Compose(
-            [
-                transforms.Resize(image_size),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
+    # if transform is not None:
+    #     image_transform = transform(img).unsqueeze(dim=0)
+    # else:
+    #     a_transform = transforms.Compose(
+    #         [
+    #             transforms.Resize(image_size),
+    #             transforms.ToTensor(),
+    #             transforms.Normalize(
+    #                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    #             ),
+    #         ]
+    #     )
+    #     transformed_image = a_transform(img).unsqueeze(dim=0)
 
-    ### Predict on image ###
+    ## Predict on image ###
     # 8. Transform the image, add batch dimension and put image on target device
-    transformed_image = image_transform(img).unsqueeze(dim=0)
+    transformed_image = transform(img).unsqueeze(dim=0)
 
     # 4. Make sure the model is on the target device
     model.to(device)
@@ -1468,7 +1478,7 @@ def pred_and_plot_image(
         # 6. Transform and add an extra dimension to image (model requires samples in [batch_size, color_channels, height, width])
 
         # 7. Make a prediction on image with an extra dimension and send it to the target device
-        breakpoint()
+        # breakpoint()
         # NOTE: Try running the line below manually, it needs to be on same device.
         target_image_pred = model(transformed_image.to(device))
 
