@@ -54,7 +54,9 @@ console: Console = Console()
 
 
 assert int(torch.__version__.split(".")[1]) >= 12, "torch version should be 1.12+"
-assert int(torchvision.__version__.split(".")[1]) >= 13, "torchvision version should be 0.13+"
+assert (
+    int(torchvision.__version__.split(".")[1]) >= 13
+), "torchvision version should be 0.13+"
 # print(f"torch version: {torch.__version__}")
 # print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
@@ -76,7 +78,9 @@ from going_modular import data_setup, engine, utils  # pylint: disable=no-name-i
 
 
 # print(f"mlxtend version: {mlxtend.__version__}")
-assert int(mlxtend.__version__.split(".")[1]) >= 19, "mlxtend verison should be 0.19.0 or higher"
+assert (
+    int(mlxtend.__version__.split(".")[1]) >= 19
+), "mlxtend verison should be 0.19.0 or higher"
 
 import argparse
 import os
@@ -126,7 +130,9 @@ from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
 import torch.profiler
 
 
-def create_writer(experiment_name: str, model_name: str, extra: str = None) -> SummaryWriter:
+def create_writer(
+    experiment_name: str, model_name: str, extra: str = None
+) -> SummaryWriter:
     """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
 
     log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
@@ -153,7 +159,9 @@ def create_writer(experiment_name: str, model_name: str, extra: str = None) -> S
     from datetime import datetime
 
     # Get timestamp of current date (all experiments on certain day live in same folder)
-    timestamp = datetime.now().strftime("%Y-%m-%d")  # returns current date in YYYY-MM-DD format
+    timestamp = datetime.now().strftime(
+        "%Y-%m-%d"
+    )  # returns current date in YYYY-MM-DD format
 
     if extra:
         # Create log directory path
@@ -222,7 +230,9 @@ def show_confusion_matrix_helper(
         plt.show()
 
 
-def compute_accuracy(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str):
+def compute_accuracy(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
+):
     model.eval()
     with torch.no_grad():
         correct_pred, num_examples = 0, 0
@@ -240,7 +250,9 @@ def compute_accuracy(model: torch.nn.Module, data_loader: torch.utils.data.DataL
     return correct_pred.float() / num_examples * 100
 
 
-def compute_epoch_loss(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str):
+def compute_epoch_loss(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device: str
+):
     model.eval()
     curr_loss, num_examples = 0.0, 0
     with torch.no_grad():
@@ -258,7 +270,9 @@ def compute_epoch_loss(model: torch.nn.Module, data_loader: torch.utils.data.Dat
         return curr_loss
 
 
-def compute_confusion_matrix(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device):
+def compute_confusion_matrix(
+    model: torch.nn.Module, data_loader: torch.utils.data.DataLoader, device
+):
 
     all_targets, all_predictions = [], []
     with torch.no_grad():
@@ -315,7 +329,9 @@ def run_validate(
 
     start_time = timer()
     # Setup testing and save the results
-    test_loss, test_acc = engine.test_step(model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device)
+    test_loss, test_acc = engine.test_step(
+        model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
+    )
 
     # End the timer and print out how long it took
     end_time = timer()
@@ -362,14 +378,20 @@ def run_train(
         loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        writer=create_writer(experiment_name=dataloader_name, model_name=model.name, extra=f"{epochs}_epochs"),
+        writer=create_writer(
+            experiment_name=dataloader_name,
+            model_name=model.name,
+            extra=f"{epochs}_epochs",
+        ),
     )
 
     # End the timer and print out how long it took
     end_time = timer()
     # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
     # Print out timer and results
-    total_train_time = print_train_time(start=start_time, end=end_time, device=device, machine="silicontop")
+    total_train_time = print_train_time(
+        start=start_time, end=end_time, device=device, machine="silicontop"
+    )
 
     # 10. Save the model to file so we can get back the best model
     save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
@@ -394,7 +416,10 @@ def run_train(
     results_df = inspect_csv_results()
     ic("Plot performance benchmarks")
     # Get names of devices
-    machine_and_device_list = [row[1][0] + " (" + row[1][1] + ")" for row in results_df[["machine", "device"]].iterrows()]
+    machine_and_device_list = [
+        row[1][0] + " (" + row[1][1] + ")"
+        for row in results_df[["machine", "device"]].iterrows()
+    ]
 
     # Plot and save figure
     plt.figure(figsize=(10, 7))
@@ -406,9 +431,7 @@ def run_train(
     )
     plt.xlabel("Machine (device)", size=14)
     plt.ylabel("Seconds per epoch (lower is better)", size=14)
-    save_path = (
-        f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
-    )
+    save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
     print(f"Saving figure to '{save_path}'")
     plt.savefig(save_path)
 
@@ -485,9 +508,18 @@ def df_to_table(
 
     return rich_table
 
+
 def console_print_table(results_df: pd.DataFrame):
     # Initiate a Table instance to be modified
-    table = Table(show_header=True, header_style="bold magenta", box=box.DOUBLE, expand=True, show_lines=True, show_edge=True, show_footer=True)
+    table = Table(
+        show_header=True,
+        header_style="bold magenta",
+        box=box.DOUBLE,
+        expand=True,
+        show_lines=True,
+        show_edge=True,
+        show_footer=True,
+    )
 
     # Modify the table instance to have the data from the DataFrame
     table = df_to_table(results_df, table)
@@ -497,6 +529,7 @@ def console_print_table(results_df: pd.DataFrame):
     table.box = box.SIMPLE_HEAD
 
     console.print(table)
+
 
 def inspect_csv_results():
     results_paths = list(Path("results").glob("*.csv"))
@@ -535,7 +568,9 @@ def walk_through_dir(dir_path):
         name of each subdirectory
     """
     for dirpath, dirnames, filenames in os.walk(dir_path):
-        print(f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'.")
+        print(
+            f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'."
+        )
 
 
 def clean_dir_images(image_path):
@@ -574,7 +609,9 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
         # Download twitter, facebook, tiktok data
         with open(data_path / "twitter_facebook_tiktok.zip", "wb") as f:
-            request = requests.get("https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1")
+            request = requests.get(
+                "https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1"
+            )
             print("Downloading twitter, facebook, tiktok data...")
             f.write(request.content)
 
@@ -585,7 +622,9 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
 
 # boss: use this to instantiate a new model class with all the proper setup as before
-def create_effnetb0_model(device: str, class_names: List[str], args: argparse.Namespace) -> torch.nn.Module:
+def create_effnetb0_model(
+    device: str, class_names: List[str], args: argparse.Namespace
+) -> torch.nn.Module:
     """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
 
     Args:
@@ -650,7 +689,9 @@ def get_model_summary(
 
 
 model_names = sorted(
-    name for name in models.__dict__ if name.islower() and not name.startswith("__") and callable(models.__dict__[name])
+    name
+    for name in models.__dict__
+    if name.islower() and not name.startswith("__") and callable(models.__dict__[name])
 )
 # print(model_names)
 
@@ -675,14 +716,18 @@ parser.add_argument(
     metavar="ARCH",
     default="efficientnet_b0",
     choices=model_names,
-    help="model architecture: " + " | ".join(model_names) + " (default: 'efficientnet_b0)",
+    help="model architecture: "
+    + " | ".join(model_names)
+    + " (default: 'efficientnet_b0)",
 )
 parser.add_argument(
     "--model-weights",
     metavar="Model Weights",
     default="EfficientNet_B0_Weights",
     choices=model_names,
-    help="model weight: " + " | ".join(model_names) + " (default: 'EfficientNet_B0_Weights)",
+    help="model weight: "
+    + " | ".join(model_names)
+    + " (default: 'EfficientNet_B0_Weights)",
 )
 parser.add_argument(
     "-j",
@@ -692,7 +737,9 @@ parser.add_argument(
     metavar="N",
     help="number of data loading workers (default: 4)",
 )
-parser.add_argument("--epochs", default=5, type=int, metavar="N", help="number of total epochs to run")
+parser.add_argument(
+    "--epochs", default=5, type=int, metavar="N", help="number of total epochs to run"
+)
 parser.add_argument(
     "--start-epoch",
     default=0,
@@ -794,15 +841,21 @@ parser.add_argument(
     type=int,
     help="number of nodes for distributed training",
 )
-parser.add_argument("--rank", default=-1, type=int, help="node rank for distributed training")
+parser.add_argument(
+    "--rank", default=-1, type=int, help="node rank for distributed training"
+)
 parser.add_argument(
     "--dist-url",
     default="tcp://224.66.41.62:23456",
     type=str,
     help="url used to set up distributed training",
 )
-parser.add_argument("--dist-backend", default="nccl", type=str, help="distributed backend")
-parser.add_argument("--seed", default=42, type=int, help="seed for initializing training. ")
+parser.add_argument(
+    "--dist-backend", default="nccl", type=str, help="distributed backend"
+)
+parser.add_argument(
+    "--seed", default=42, type=int, help="seed for initializing training. "
+)
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
     "--multiprocessing-distributed",
@@ -837,7 +890,10 @@ def main():
         # )
 
     if args.gpu is not None:
-        warnings.warn("You have chosen a specific GPU. This will completely " "disable data parallelism.")
+        warnings.warn(
+            "You have chosen a specific GPU. This will completely "
+            "disable data parallelism."
+        )
 
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
@@ -917,7 +973,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 # ourselves based on the total number of GPUs of the current node.
                 args.batch_size = int(args.batch_size / ngpus_per_node)
                 args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-                model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+                model = torch.nn.parallel.DistributedDataParallel(
+                    model, device_ids=[args.gpu]
+                )
                 ic(f"Using GPU devices with DistributedDataParallel {[args.gpu]}")
             else:
                 ic("Attempting to use single gpu device with DistributedDataParallel")
@@ -956,8 +1014,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # Data loading code
     if args.dummy:
         print("=> Dummy data is used!")
-        train_dataset = datasets.FakeData(1281167, (3, 224, 224), 1000, transforms.ToTensor())
-        val_dataset = datasets.FakeData(50000, (3, 224, 224), 1000, transforms.ToTensor())
+        train_dataset = datasets.FakeData(
+            1281167, (3, 224, 224), 1000, transforms.ToTensor()
+        )
+        val_dataset = datasets.FakeData(
+            50000, (3, 224, 224), 1000, transforms.ToTensor()
+        )
     else:
 
         # Setup path to data folder
@@ -980,8 +1042,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
         # get datasets for confusion matrix
         # Use ImageFolder to create dataset(s)
-        train_dataset = train_data = datasets.ImageFolder(train_dir, transform=auto_transforms)
-        val_dataset = test_data = datasets.ImageFolder(test_dir, transform=auto_transforms)
+        train_dataset = train_data = datasets.ImageFolder(
+            train_dir, transform=auto_transforms
+        )
+        val_dataset = test_data = datasets.ImageFolder(
+            test_dir, transform=auto_transforms
+        )
 
     # -----------------------------
     # BOSSNEW
@@ -1043,7 +1109,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     if args.weights:
         ic(f"loading weights from -> {args.weights}")
         # loaded_model: nn.Module
-        model = run_get_model_for_inference(model, device, class_names, args.weights, args)
+        model = run_get_model_for_inference(
+            model, device, class_names, args.weights, args
+        )
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -1063,13 +1131,19 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             model.load_state_dict(checkpoint["state_dict"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             # scheduler.load_state_dict(checkpoint["scheduler"])
-            print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint["epoch"]))
+            print(
+                "=> loaded checkpoint '{}' (epoch {})".format(
+                    args.resume, checkpoint["epoch"]
+                )
+            )
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
+        val_sampler = torch.utils.data.distributed.DistributedSampler(
+            val_dataset, shuffle=False, drop_last=True
+        )
     else:
         train_sampler = None
         val_sampler = None
@@ -1132,7 +1206,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     if args.test:
         print(" Running test command ...")
         test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-        pred_dicts = pred_and_store(test_data_paths, model, auto_transforms, class_names, device)
+        pred_dicts = pred_and_store(
+            test_data_paths, model, auto_transforms, class_names, device
+        )
         pred_df = pd.DataFrame(pred_dicts)
         # breakpoint()
         # pred_df.head()
@@ -1156,7 +1232,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     path_to_model = save_model_to_disk("ScreenNetV1", model)
 
     loaded_model_for_inference: nn.Module
-    loaded_model_for_inference = run_get_model_for_inference(model, device, class_names, path_to_model, args)
+    loaded_model_for_inference = run_get_model_for_inference(
+        model, device, class_names, path_to_model, args
+    )
 
     # FIXME: ic| 'lets make a 3 predictions on some random images'
     # FIXME: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same device
@@ -1166,25 +1244,38 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # FIXME: exc_type: <class 'RuntimeError'>
     # FIXME: lets make a 3 predictions on some random images
     ic("lets make a 3 predictions on some random images")
-    get_random_perdictions_and_plots(loaded_model_for_inference, test_dir=test_dir, class_names=class_names)
-
+    get_random_perdictions_and_plots(
+        loaded_model_for_inference, test_dir=test_dir, class_names=class_names
+    )
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
-    show_confusion_matrix_helper(cmat, class_names, to_disk=True, fname="confusion-matrix.png")
+    show_confusion_matrix_helper(
+        cmat, class_names, to_disk=True, fname="confusion-matrix.png"
+    )
 
 
-def get_random_perdictions_and_plots(best_model: nn.Module, test_dir: pathlib.PosixPath = "", class_names: List[str] = None):
+def get_random_perdictions_and_plots(
+    best_model: nn.Module,
+    test_dir: pathlib.PosixPath = "",
+    class_names: List[str] = None,
+):
     num_images_to_plot = 3
-    test_image_path_list = list(Path(test_dir).glob("*/*.jpg")) # get all test image paths from 20% dataset
-    test_image_path_sample = random.sample(population=test_image_path_list,
-                                           k=num_images_to_plot) # randomly select k number of images
+    test_image_path_list = list(
+        Path(test_dir).glob("*/*.jpg")
+    )  # get all test image paths from 20% dataset
+    test_image_path_sample = random.sample(
+        population=test_image_path_list, k=num_images_to_plot
+    )  # randomly select k number of images
 
     # Iterate through random test image paths, make predictions on them and plot them
     for image_path in test_image_path_sample:
-        pred_and_plot_image(model=best_model,
-                            image_path=image_path,
-                            class_names=class_names,
-                            image_size=(224, 224))
+        pred_and_plot_image(
+            model=best_model,
+            image_path=image_path,
+            class_names=class_names,
+            image_size=(224, 224),
+        )
+
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
     torch.save(state, filename)
@@ -1310,7 +1401,9 @@ def get_random_images_from_dataset(
     import random
 
     num_images_to_plot = 3
-    test_image_path_list = list(Path(test_dir).glob("*/*.jpg"))  # get list all image paths from test data
+    test_image_path_list = list(
+        Path(test_dir).glob("*/*.jpg")
+    )  # get list all image paths from test data
     test_image_path_sample = random.sample(
         population=test_image_path_list,  # go through all of the test image paths
         k=num_images_to_plot,
@@ -1356,7 +1449,9 @@ def pred_and_plot_image(
             [
                 transforms.Resize(image_size),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
             ]
         )
 
@@ -1419,7 +1514,11 @@ def run_save_model_for_inference(model: torch.nn.Module) -> Tuple[pathlib.PosixP
 
 # wrapper function of common code
 def run_get_model_for_inference(
-    model: torch.nn.Module, device: torch.device, class_names: List[str], path_to_model: pathlib.PosixPath, args: argparse.Namespace
+    model: torch.nn.Module,
+    device: torch.device,
+    class_names: List[str],
+    path_to_model: pathlib.PosixPath,
+    args: argparse.Namespace,
 ) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
@@ -1431,7 +1530,9 @@ def run_get_model_for_inference(
     Returns:
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
-    loaded_model_for_inference = load_model_for_inference(path_to_model, device, class_names, args)
+    loaded_model_for_inference = load_model_for_inference(
+        path_to_model, device, class_names, args
+    )
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
 
@@ -1461,7 +1562,9 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
-def load_model_for_inference(save_path: str, device: str, class_names: List[str], args: argparse.Namespace) -> nn.Module:
+def load_model_for_inference(
+    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
+) -> nn.Module:
     model = create_effnetb0_model(device, class_names, args)
     model.load_state_dict(torch.load(save_path))
     model.eval()
@@ -1498,7 +1601,9 @@ def plot_image_with_predicted_label(
 
     plt.figure()
     plt.imshow(img)
-    plt.title(f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}")
+    plt.title(
+        f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max():.3f}"
+    )
     plt.axis(False)
 
     if to_disk:
@@ -1530,7 +1635,9 @@ def validate_seed(seed: int):
     device = "cpu"
     cpu_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
     cpu_tensor.requires_grad = True
-    cpu_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(device)  # Change this line
+    cpu_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+        device
+    )  # Change this line
 
     with torch.no_grad():
         cpu_tensor.add_(-coeff * cpu_tensor.grad)
@@ -1539,7 +1646,9 @@ def validate_seed(seed: int):
         device = "mps"
         mps_tensor = torch.from_numpy(base_tensor.copy()).to(device)  # Change this line
         mps_tensor.requires_grad = True
-        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(device)  # Change this line
+        mps_tensor.grad = torch.from_numpy(grad_tensor.copy()).to(
+            device
+        )  # Change this line
 
         with torch.no_grad():
             mps_tensor.add_(-coeff * mps_tensor.grad)
@@ -1549,7 +1658,11 @@ def validate_seed(seed: int):
 
 def info(args, dataset_root_dir=""):
     platform.platform()
-    print(watermark(packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"))
+    print(
+        watermark(
+            packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
+        )
+    )
     devices.mps_check()
     validate_seed(args.seed)
     walk_through_dir(dataset_root_dir)
@@ -1605,18 +1718,23 @@ def print_train_time(start, end, device=None, machine=None):
     """
     total_time = end - start
     if device:
-        print(f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n")
+        print(
+            f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n"
+        )
     else:
         print(f"\nTrain time: {total_time:.3f} seconds\n")
     return round(total_time, 3)
 
+
 # SOURCE: https://www.learnpytorch.io/09_pytorch_model_deployment/
 # 1. Create a function to return a list of dictionaries with sample, truth label, prediction, prediction probability and prediction time
-def pred_and_store(paths: List[pathlib.Path],
-                   model: torch.nn.Module,
-                   transform: torchvision.transforms,
-                   class_names: List[str],
-                   device: torch.device = "") -> List[Dict]:
+def pred_and_store(
+    paths: List[pathlib.Path],
+    model: torch.nn.Module,
+    transform: torchvision.transforms,
+    class_names: List[str],
+    device: torch.device = "",
+) -> List[Dict]:
 
     ic(paths)
     ic(model.name)
@@ -1653,10 +1771,18 @@ def pred_and_store(paths: List[pathlib.Path],
 
         # 10. Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
-            pred_logit = model(transformed_image.to(device)) # perform inference on target sample
-            pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
-            pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
-            pred_class = class_names[pred_label.cpu()] # hardcode prediction class to be on CPU
+            pred_logit = model(
+                transformed_image.to(device)
+            )  # perform inference on target sample
+            pred_prob = torch.softmax(
+                pred_logit, dim=1
+            )  # turn logits into prediction probabilities
+            pred_label = torch.argmax(
+                pred_prob, dim=1
+            )  # turn prediction probabilities into prediction label
+            pred_class = class_names[
+                pred_label.cpu()
+            ]  # hardcode prediction class to be on CPU
 
             # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
             pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
@@ -1664,7 +1790,7 @@ def pred_and_store(paths: List[pathlib.Path],
 
             # 12. End the timer and calculate time per pred
             end_time = timer()
-            pred_dict["time_for_pred"] = round(end_time-start_time, 4)
+            pred_dict["time_for_pred"] = round(end_time - start_time, 4)
 
         # 13. Does the pred match the true label?
         pred_dict["correct"] = class_name == pred_class
@@ -1674,6 +1800,7 @@ def pred_and_store(paths: List[pathlib.Path],
 
     # 15. Return list of prediction dictionaries
     return pred_list
+
 
 if __name__ == "__main__":
     import traceback

@@ -8,7 +8,7 @@ mypy:
 	mypy --follow-imports=silent --ignore-missing-imports --show-column-numbers --no-pretty main.py
 
 black:
-	black *.py
+	black .
 
 isort:
 	isort --atomic .
