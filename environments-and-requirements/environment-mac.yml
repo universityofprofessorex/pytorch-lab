@@ -74,6 +74,6 @@ dependencies:
       - pyfiglet
       - pynguin
       - memray
-      - torch_tb_profiler
+      - torch-tb-profiler
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

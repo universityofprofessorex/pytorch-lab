@@ -122,6 +122,7 @@ from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
     accuracy_fn,
     plot_loss_curves,
 )
+import torch.profiler
 
 
 def create_writer(experiment_name: str, model_name: str, extra: str = None) -> SummaryWriter:
@@ -1112,11 +1113,30 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     path_to_model = save_model_to_disk("ScreenNetV1", model)
 
+    loaded_model_for_inference: nn.Module
     loaded_model_for_inference = run_get_model_for_inference(model, device, class_names, path_to_model, args)
+
+    # lets make a 3 predictions on some random images
+    ic("lets make a 3 predictions on some random images")
+    get_random_perdictions_and_plots(loaded_model_for_inference, test_dir=test_dir, class_names=class_names)
+
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
     show_confusion_matrix_helper(cmat, class_names, to_disk=True, fname="confusion-matrix.png")
 
+
+def get_random_perdictions_and_plots(best_model: nn.Module, test_dir: pathlib.PosixPath = "", class_names: List[str] = None):
+    num_images_to_plot = 3
+    test_image_path_list = list(Path(test_dir).glob("*/*.jpg")) # get all test image paths from 20% dataset
+    test_image_path_sample = random.sample(population=test_image_path_list,
+                                           k=num_images_to_plot) # randomly select k number of images
+
+    # Iterate through random test image paths, make predictions on them and plot them
+    for image_path in test_image_path_sample:
+        pred_and_plot_image(model=best_model,
+                            image_path=image_path,
+                            class_names=class_names,
+                            image_size=(224, 224))
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
     torch.save(state, filename)
@@ -1319,6 +1339,9 @@ def pred_and_plot_image(
     # 9. Convert prediction probabilities -> prediction labels
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
 
+    image_path_api = pathlib.Path(image_path).resolve()
+    plot_fname = f"prediction-{model.name}-{image_path_api.stem}.png"
+
     # 10. Plot image with predicted label and probability
     plot_image_with_predicted_label(
         to_disk=True,
@@ -1326,7 +1349,7 @@ def pred_and_plot_image(
         target_image_pred_label=target_image_pred_label,
         target_image_pred_probs=target_image_pred_probs,
         class_names=class_names,
-        fname=f"example.png",
+        fname=plot_fname,
     )
 
 

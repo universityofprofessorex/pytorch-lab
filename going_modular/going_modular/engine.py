@@ -2,6 +2,7 @@
 Contains functions for training and testing a PyTorch model.
 """
 import torch
+import torch.profiler
 
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
@@ -201,60 +202,68 @@ def train(
     # Make sure model on target device
     model.to(device)
 
-    # Loop through training and testing steps for a number of epochs
-    for epoch in tqdm(range(epochs)):
-        print(
-            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
-        )
-        train_loss, train_acc = train_step(
-            model=model,
-            dataloader=train_dataloader,
-            loss_fn=loss_fn,
-            optimizer=optimizer,
-            device=device,
-        )
-        print(
-            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
-        )
-        test_loss, test_acc = test_step(
-            model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
-        )
-
-        # Print out what's happening
-        print(
-            f"Epoch: {epoch+1} | "
-            f"train_loss: {train_loss:.4f} | "
-            f"train_acc: {train_acc:.4f} | "
-            f"test_loss: {test_loss:.4f} | "
-            f"test_acc: {test_acc:.4f}"
-        )
-
-        # Update results dictionary
-        results["train_loss"].append(train_loss)
-        results["train_acc"].append(train_acc)
-        results["test_loss"].append(test_loss)
-        results["test_acc"].append(test_acc)
-
-        ### New: Use the writer parameter to track experiments ###
-        # See if there's a writer, if so, log to it
-        if writer:
-            # Add results to SummaryWriter
-            writer.add_scalars(
-                main_tag="Loss",
-                tag_scalar_dict={"train_loss": train_loss, "test_loss": test_loss},
-                global_step=epoch,
+    with torch.profiler.profile(
+        schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(f"./runs/{model.__class__.__name__}"),
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    ) as prof:
+        # Loop through training and testing steps for a number of epochs
+        for epoch in tqdm(range(epochs)):
+            print(
+                f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
             )
-            writer.add_scalars(
-                main_tag="Accuracy",
-                tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
-                global_step=epoch,
+            train_loss, train_acc = train_step(
+                model=model,
+                dataloader=train_dataloader,
+                loss_fn=loss_fn,
+                optimizer=optimizer,
+                device=device,
+            )
+            print(
+                f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+            )
+            test_loss, test_acc = test_step(
+                model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
             )
 
-            # Close the writer
-            writer.close()
-        else:
-            pass
-    ### End new ###
+            # Print out what's happening
+            print(
+                f"Epoch: {epoch+1} | "
+                f"train_loss: {train_loss:.4f} | "
+                f"train_acc: {train_acc:.4f} | "
+                f"test_loss: {test_loss:.4f} | "
+                f"test_acc: {test_acc:.4f}"
+            )
+
+            # Update results dictionary
+            results["train_loss"].append(train_loss)
+            results["train_acc"].append(train_acc)
+            results["test_loss"].append(test_loss)
+            results["test_acc"].append(test_acc)
+
+            ### New: Use the writer parameter to track experiments ###
+            # See if there's a writer, if so, log to it
+            if writer:
+                # Add results to SummaryWriter
+                writer.add_scalars(
+                    main_tag="Loss",
+                    tag_scalar_dict={"train_loss": train_loss, "test_loss": test_loss},
+                    global_step=epoch,
+                )
+                writer.add_scalars(
+                    main_tag="Accuracy",
+                    tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
+                    global_step=epoch,
+                )
+
+                # Close the writer
+                writer.close()
+            else:
+                pass
+        ### End new ###
+        prof.step() # Need to call this at the end of each step to notify profiler of steps' boundary.
 
     # Return the filled results at the end of the epochs
     return results

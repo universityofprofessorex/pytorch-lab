@@ -35,3 +35,6 @@ pynguin:
         -v
 memray:
 	memray run --live main.py
+
+tensorboard:
+	tensorboard --logdir runs/

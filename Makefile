@@ -8,3 +8,4 @@ conda-update:
 conda-activate:
 	pyenv activate anaconda3-2022.05
 	conda activate pytorch-lab3
+
