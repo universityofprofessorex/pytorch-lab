@@ -211,22 +211,20 @@ def train(
     # ic(epochs)
     # ic(device)
 
+    # Create empty results dictionary
+    results = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
+
+    # Make sure model on target device
+    model.to(device)
+
     # ############## TENSORBOARD ########################
     # if writer:
     #     images_test_dataloader, labels_test_data_loader = next(iter(test_dataloader))
     #     # example_data, example_targets = examples.next()
     #     grid = torchvision.utils.make_grid(images_test_dataloader)
     #     writer.add_image('twitter_facebook_tiktok_images', grid, 0)
-    #     writer.add_graph(model, images_test_dataloader)
-    #     # img_grid = torchvision.utils.make_grid(example_data)
-    #     # writer.add_image("twitter_facebook_tiktok_images", img_grid)
+    #     # writer.add_graph(model, images_test_dataloader)
     # ###################################################
-
-    # Create empty results dictionary
-    results = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
-
-    # Make sure model on target device
-    model.to(device)
 
     # ############## TENSORBOARD ########################
     # if writer:
