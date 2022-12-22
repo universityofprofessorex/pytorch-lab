@@ -203,7 +203,6 @@ def predict_from_dir(
     ic(image_folder_api)
 
     paths = image_folder_api
-    # paths.expand(image_folder_api)
 
     for paths_item in paths:
         predict_from_file(
@@ -214,42 +213,7 @@ def predict_from_dir(
             device,
             args,
         )
-    # print(paths_item)
 
-    # paths.append(image_folder_api)
-    # # image_class = paths[0].parent.stem
-    # # 4. Open image
-    # img = Image.open(paths[0])
-
-    # pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
-
-    # image_class = pred_dicts[0]["pred_class"]
-    # image_pred_prob = pred_dicts[0]["pred_prob"]
-    # image_time_for_pred = pred_dicts[0]["time_for_pred"]
-
-    # # 5. Print metadata
-    # print(f"Random image path: {paths[0]}")
-    # print(f"Image class: {image_class}")
-    # print(f"Image pred prob: {image_pred_prob}")
-    # print(f"Image pred time: {image_time_for_pred}")
-    # print(f"Image height: {img.height}")
-    # print(f"Image width: {img.width}")
-
-    # # print prediction info to rich table
-    # pred_df = pd.DataFrame(pred_dicts)
-    # console_print_table(pred_df)
-
-    # plot_fname = (
-    #     f"prediction-{model.name}-{image_folder_api.stem}{image_folder_api.suffix}"
-    # )
-
-    # from_pil_image_to_plt_display(
-    #     img,
-    #     pred_dicts,
-    #     to_disk=args.to_disk,
-    #     interactive=args.interactive,
-    #     fname=plot_fname,
-    # )
 
 
 def predict_from_file(
@@ -284,6 +248,9 @@ def predict_from_file(
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
     pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
+
+    if args.to_disk and args.results != "":
+        write_predict_results_to_csv(pred_dicts, args)
 
     image_class = pred_dicts[0]["pred_class"]
     image_pred_prob = pred_dicts[0]["pred_prob"]
@@ -707,7 +674,7 @@ def run_train(
 
     dataset_name = "twitter_facebook_tiktok"
 
-    write_results_to_csv(
+    write_training_results_to_csv(
         "silicontop",
         device,
         dataset_name=dataset_name,
@@ -747,7 +714,7 @@ def run_train(
 
 
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
-def write_results_to_csv(
+def write_training_results_to_csv(
     MACHINE,
     device,
     dataset_name="",
@@ -784,6 +751,20 @@ def write_results_to_csv(
         f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
         index=False,
     )
+
+def write_predict_results_to_csv(
+    pred_dicts: List[Dict], args: argparse.Namespace
+):
+    # Create results dict
+    pred_df = pd.DataFrame(pred_dicts)
+    pred_df.drop(columns=['class_name','correct'],inplace=True)
+
+    # if file does not exist write header
+    if not os.path.isfile(args.results):
+        pred_df.to_csv(args.results, header='column_names')
+    else: # else it exists so append without writing the header
+        pred_df.to_csv(args.results, mode='a', header=False)
+
 
 
 def df_to_table(
@@ -1095,6 +1076,13 @@ parser.add_argument(
     type=str,
     metavar="PREDICT_PATH",
     help="path to image to run prediction on (default: none)",
+)
+parser.add_argument(
+    "--results",
+    default="",
+    type=str,
+    metavar="RESULTS_PATH",
+    help="path to a csv file to write to. (default: none)",
 )
 parser.add_argument(
     "--weights",
