@@ -116,6 +116,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
 from mlxtend.plotting import plot_confusion_matrix
+import PIL
 from PIL import Image
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
@@ -129,6 +130,129 @@ from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
     plot_loss_curves,
 )
 import torch.profiler
+
+
+# ------------------------------------------------------------
+# NOTE: MOVE THIS TO A FILE UTILITIES LIBRARY
+# ------------------------------------------------------------
+# SOURCE: https://github.com/tgbugs/pyontutils/blob/05dc32b092b015233f4a6cefa6c157577d029a40/ilxutils/tools.py
+def is_file(path: str):
+    """Check if path contains a file
+
+    Args:
+        path (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if pathlib.Path(path).is_file():
+        return True
+    return False
+
+
+def is_directory(path: str):
+    """Check if path contains a dir
+
+    Args:
+        path (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if pathlib.Path(path).is_dir():
+        return True
+    return False
+
+
+def tilda(obj):
+    """wrapper for linux ~/ shell notation
+
+    Args:
+        obj (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if isinstance(obj, list):
+        return [
+            str(pathlib.Path(o).expanduser()) if isinstance(o, str) else o for o in obj
+        ]
+    elif isinstance(obj, str):
+        return str(pathlib.Path(obj).expanduser())
+    else:
+        return obj
+
+
+def fix_path(path: str):
+    """Automatically convert path to fully qualifies file uri.
+
+    Args:
+        path (_type_): _description_
+    """
+
+    def __fix_path(path):
+        if not isinstance(path, str):
+            return path
+        elif "~" == path[0]:
+            tilda_fixed_path = tilda(path)
+            if is_file(tilda_fixed_path):
+                return tilda_fixed_path
+            else:
+                exit(path, ": does not exit.")
+        elif is_file(pathlib.Path.home() / path):
+            return str(pathlib.Path().home() / path)
+        elif is_directory(pathlib.Path.home() / path):
+            return str(pathlib.Path().home() / path)
+        else:
+            return path
+
+    if isinstance(path, str):
+        return __fix_path(path)
+    elif isinstance(path, list):
+        return [__fix_path(p) for p in path]
+    else:
+        return path
+
+
+# ------------------------------------------------------------
+
+
+def from_pil_image_to_plt_display(
+    img: Image,
+    pred_dicts: List[Dict],
+    to_disk: bool = True,
+    interactive: bool = True,
+    fname: str = "plot.png",
+):
+    """Take a PIL image and convert it into a matplotlib figure that has the prediction along with image displayed.
+
+    Args:
+        img (Image): _description_
+        image_class (str): _description_
+        to_disk (bool, optional): _description_. Defaults to True.
+        interactive (bool, optional): _description_. Defaults to True.
+    """
+    # Turn the image into an array
+    img_as_array = np.asarray(img)
+
+    image_class = pred_dicts[0]["pred_class"]
+    image_pred_prob = pred_dicts[0]["pred_prob"]
+    image_time_for_pred = pred_dicts[0]["time_for_pred"]
+
+    if interactive:
+        plt.ion()
+
+    # Plot the image with matplotlib
+    plt.figure(figsize=(10, 7))
+    plt.imshow(img_as_array)
+    plt.title(
+        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]"
+    )
+    plt.axis(False)
+
+    if to_disk:
+        # plt.imsave(fname, img_as_array)
+        plt.savefig(fname)
 
 
 def create_writer(
@@ -831,6 +955,27 @@ parser.add_argument(
     help="use pre-trained model",
 )
 parser.add_argument(
+    "--interactive",
+    dest="interactive",
+    action="store_true",
+    default=False,
+    help="Set matplotlib to interactive mode",
+)
+parser.add_argument(
+    "--debug",
+    dest="debug",
+    action="store_true",
+    default=False,
+    help="debug mode means more logging etc",
+)
+parser.add_argument(
+    "--to-disk",
+    dest="to_disk",
+    action="store_true",
+    default=False,
+    help="write files to disk",
+)
+parser.add_argument(
     "--summary",
     dest="summary",
     action="store_true",
@@ -1191,17 +1336,57 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.predict:
         print(" Running predict command ...")
-        ic(
-            pred_and_plot_image(
-                model,
-                image_path,
-                class_names,
-                image_size=(224, 224),
-                # transform: torchvision.transforms = None,
-                device=device,
-            )
+        # ic(
+        #     pred_and_plot_image(
+        #         model,
+        #         args.predict,
+        #         class_names,
+        #         image_size=(224, 224),
+        #         # transform: torchvision.transforms = None,
+        #         device=device,
+        #     )
+        # )
+        # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
+        path_to_image_from_cli = fix_path(args.predict)
+        image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
+        ic(image_path_api)
+
+        paths = []
+        paths.append(image_path_api)
+        # image_class = paths[0].parent.stem
+        # 4. Open image
+        img = Image.open(paths[0])
+
+        pred_dicts = pred_and_store(paths, model, auto_transforms, class_names, device)
+
+        image_class = pred_dicts[0]["pred_class"]
+        image_pred_prob = pred_dicts[0]["pred_prob"]
+        image_time_for_pred = pred_dicts[0]["time_for_pred"]
+
+        # 5. Print metadata
+        print(f"Random image path: {paths[0]}")
+        print(f"Image class: {image_class}")
+        print(f"Image pred prob: {image_pred_prob}")
+        print(f"Image pred time: {image_time_for_pred}")
+        print(f"Image height: {img.height}")
+        print(f"Image width: {img.width}")
+
+        # print prediction info to rich table
+        pred_df = pd.DataFrame(pred_dicts)
+        console_print_table(pred_df)
+
+        plot_fname = (
+            f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
         )
-        # validate(val_loader, model, criterion, args)
+
+        from_pil_image_to_plt_display(
+            img,
+            pred_dicts,
+            to_disk=args.to_disk,
+            interactive=args.interactive,
+            fname=plot_fname,
+        )
+
         return
 
     if args.test:
@@ -1237,13 +1422,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         model, device, class_names, path_to_model, args
     )
 
-    # FIXME: ic| 'lets make a 3 predictions on some random images'
-    # FIXME: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same device
-    # FIXME: Error Class: <class 'RuntimeError'>
-    # FIXME: [UNEXPECTED] RuntimeError: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same
-    # FIXME: device
-    # FIXME: exc_type: <class 'RuntimeError'>
-    # FIXME: lets make a 3 predictions on some random images
     ic("lets make a 3 predictions on some random images")
     get_random_perdictions_and_plots(
         loaded_model_for_inference,
