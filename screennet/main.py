@@ -485,6 +485,18 @@ def df_to_table(
 
     return rich_table
 
+def console_print_table(results_df: pd.DataFrame):
+    # Initiate a Table instance to be modified
+    table = Table(show_header=True, header_style="bold magenta", box=box.DOUBLE, expand=True, show_lines=True, show_edge=True, show_footer=True)
+
+    # Modify the table instance to have the data from the DataFrame
+    table = df_to_table(results_df, table)
+
+    # Update the style of the table
+    table.row_styles = ["none", "dim"]
+    table.box = box.SIMPLE_HEAD
+
+    console.print(table)
 
 def inspect_csv_results():
     results_paths = list(Path("results").glob("*.csv"))
@@ -495,17 +507,18 @@ def inspect_csv_results():
     results_df = pd.concat(df_list).reset_index(drop=True)
     # prettify(results_df)
 
-    # Initiate a Table instance to be modified
-    table = Table(show_header=True, header_style="bold magenta")
+    # # Initiate a Table instance to be modified
+    # table = Table(show_header=True, header_style="bold magenta")
 
-    # Modify the table instance to have the data from the DataFrame
-    table = df_to_table(results_df, table)
+    # # Modify the table instance to have the data from the DataFrame
+    # table = df_to_table(results_df, table)
 
-    # Update the style of the table
-    table.row_styles = ["none", "dim"]
-    table.box = box.SIMPLE_HEAD
+    # # Update the style of the table
+    # table.row_styles = ["none", "dim"]
+    # table.box = box.SIMPLE_HEAD
 
-    console.print(table)
+    # console.print(table)
+    console_print_table(results_df)
     return results_df
 
 
@@ -1121,7 +1134,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
         pred_dicts = pred_and_store(test_data_paths, model, auto_transforms, class_names, device)
         pred_df = pd.DataFrame(pred_dicts)
-        pred_df.head()
+        # breakpoint()
+        # pred_df.head()
+        console_print_table(pred_df)
         return
 
     ic(
@@ -1601,7 +1616,7 @@ def pred_and_store(paths: List[pathlib.Path],
                    model: torch.nn.Module,
                    transform: torchvision.transforms,
                    class_names: List[str],
-                   device: str = "cuda" if torch.cuda.is_available() else "cpu") -> List[Dict]:
+                   device: torch.device = "") -> List[Dict]:
 
     ic(paths)
     ic(model.name)
@@ -1629,7 +1644,8 @@ def pred_and_store(paths: List[pathlib.Path],
         img = Image.open(path)
 
         # 8. Transform the image, add batch dimension and put image on target device
-        transformed_image = transform(img).unsqueeze(0).to(device)
+        # transformed_image = transform(img).unsqueeze(dim=0).to(device)
+        transformed_image = transform(img).unsqueeze(dim=0)
 
         # 9. Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
@@ -1637,7 +1653,7 @@ def pred_and_store(paths: List[pathlib.Path],
 
         # 10. Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
-            pred_logit = model(transformed_image) # perform inference on target sample
+            pred_logit = model(transformed_image.to(device)) # perform inference on target sample
             pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
             pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
             pred_class = class_names[pred_label.cpu()] # hardcode prediction class to be on CPU
