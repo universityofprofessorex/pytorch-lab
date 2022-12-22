@@ -54,7 +54,7 @@ def train_step(
         torch.profiler.ProfilerActivity.CPU,
         torch.profiler.ProfilerActivity.CUDA],
         schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/", worker_name='worker0'),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/profiler", worker_name='worker0'),
         record_shapes=True,
         profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
         with_stack=True
