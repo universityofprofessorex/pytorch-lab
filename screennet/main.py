@@ -156,7 +156,20 @@ def predict_from_dir(
     image_folder_api = get_image_files(path_to_image_from_cli)
     ic(image_folder_api)
 
-    # paths = []
+    paths = image_folder_api
+    # paths.expand(image_folder_api)
+
+    for paths_item in paths:
+        predict_from_file(
+                paths_item,
+                model,
+                transforms,
+                class_names,
+                device,
+                args,
+        )
+    # print(paths_item)
+
     # paths.append(image_folder_api)
     # # image_class = paths[0].parent.stem
     # # 4. Open image
