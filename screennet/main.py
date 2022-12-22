@@ -132,6 +132,80 @@ from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
 import torch.profiler
 import fastai
 from fastai.data.transforms import get_image_files
+import torchvision.transforms.functional as pytorch_transforms_functional
+
+
+def pil_read_image(img_path):
+    with Image.open(img_path) as img:
+        return torch.from_numpy(np.array(img))
+
+
+def get_pil_image_channels(image_path: str) -> int:
+    # pil_img = pil_read_image(image_path)
+
+    # load pillow image
+    pil_img = Image.open(image_path)
+
+    # # convert PIL image to numpy array
+    # img_np = np.array(pil_img)
+
+    # # # define custom transform function
+    # # transform = transforms.Compose([
+    # #     transforms.PILToTensor()
+    # # ])
+    # # img_tr = transform(pil_img)
+    # # ic(img_tr.shape)
+    pil_img_tensor = transforms.PILToTensor()(pil_img)
+
+    # breakpoint()
+
+    # transform the pIL image to tensor
+    # image
+
+    # pil_img_tensor = torchvision.io.decode_image(convert_pil_image_to_torch_tensor(pil_img))
+    # pil_img_tensor = torchvision.io.decode_image(pil_img)
+    # pil_img_tensor = torchvision.io.decode_image(pil_img_tensor)
+    # breakpoint()
+    # ic(pil_img_tensor.shape)
+    return pil_img_tensor.shape[0]
+
+
+def convert_pil_image_to_rgb_channels(image_path: str):
+    if get_pil_image_channels(image_path) == 4:
+        pil_image = Image.open(image_path).convert("RGB")
+        # img_tensor = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB)
+        # breakpoint()
+        # pil_image = convert_tensor_to_pil_image(img_tensor)
+        return pil_image
+    else:
+        pil_image = Image.open(image_path)
+        return pil_image
+
+
+# convert image back and forth if needed: https://stackoverflow.com/questions/68207510/how-to-use-torchvision-io-read-image-with-image-as-variable-not-stored-file
+def convert_pil_image_to_torch_tensor(pil_image: Image) -> torch.Tensor:
+    """Convert PIL image to pytorch tensor
+
+    Args:
+        pil_image (PIL.Image): _description_
+
+    Returns:
+        torch.Tensor: _description_
+    """
+    return pytorch_transforms_functional.to_tensor(pil_image)
+
+
+# convert image back and forth if needed: https://stackoverflow.com/questions/68207510/how-to-use-torchvision-io-read-image-with-image-as-variable-not-stored-file
+def convert_tensor_to_pil_image(tensor_image: torch.Tensor) -> Image:
+    """Convert tensor image to Pillow object
+
+    Args:
+        tensor_image (torch.Tensor): _description_
+
+    Returns:
+        PIL.Image: _description_
+    """
+    return pytorch_transforms_functional.to_pil_image(tensor_image)
 
 
 def predict_from_dir(
@@ -161,12 +235,12 @@ def predict_from_dir(
 
     for paths_item in paths:
         predict_from_file(
-                paths_item,
-                model,
-                transforms,
-                class_names,
-                device,
-                args,
+            paths_item,
+            model,
+            transforms,
+            class_names,
+            device,
+            args,
         )
     # print(paths_item)
 
@@ -228,11 +302,14 @@ def predict_from_file(
     image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
     ic(image_path_api)
 
+    # get_pil_image_channels(path_to_image_from_cli)
+
     paths = []
     paths.append(image_path_api)
     # image_class = paths[0].parent.stem
     # 4. Open image
-    img = Image.open(paths[0])
+    # img = Image.open(paths[0])
+    img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
     pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
 
@@ -2053,7 +2130,8 @@ def pred_and_store(
         start_time = timer()
 
         # 7. Open image path
-        img = Image.open(path)
+        # img = Image.open(path)
+        img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
         # 8. Transform the image, add batch dimension and put image on target device
         # transformed_image = transform(img).unsqueeze(dim=0).to(device)
