@@ -135,47 +135,19 @@ from fastai.data.transforms import get_image_files
 import torchvision.transforms.functional as pytorch_transforms_functional
 
 
-def pil_read_image(img_path):
-    with Image.open(img_path) as img:
-        return torch.from_numpy(np.array(img))
-
-
 def get_pil_image_channels(image_path: str) -> int:
-    # pil_img = pil_read_image(image_path)
-
     # load pillow image
     pil_img = Image.open(image_path)
 
-    # # convert PIL image to numpy array
-    # img_np = np.array(pil_img)
-
-    # # # define custom transform function
-    # # transform = transforms.Compose([
-    # #     transforms.PILToTensor()
-    # # ])
-    # # img_tr = transform(pil_img)
-    # # ic(img_tr.shape)
+    # Converts a PIL Image (H x W x C) to a Tensor of shape (C x H x W).
     pil_img_tensor = transforms.PILToTensor()(pil_img)
 
-    # breakpoint()
-
-    # transform the pIL image to tensor
-    # image
-
-    # pil_img_tensor = torchvision.io.decode_image(convert_pil_image_to_torch_tensor(pil_img))
-    # pil_img_tensor = torchvision.io.decode_image(pil_img)
-    # pil_img_tensor = torchvision.io.decode_image(pil_img_tensor)
-    # breakpoint()
-    # ic(pil_img_tensor.shape)
     return pil_img_tensor.shape[0]
 
 
 def convert_pil_image_to_rgb_channels(image_path: str):
     if get_pil_image_channels(image_path) == 4:
         pil_image = Image.open(image_path).convert("RGB")
-        # img_tensor = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB)
-        # breakpoint()
-        # pil_image = convert_tensor_to_pil_image(img_tensor)
         return pil_image
     else:
         pil_image = Image.open(image_path)
@@ -453,9 +425,10 @@ def from_pil_image_to_plt_display(
     # Plot the image with matplotlib
     plt.figure(figsize=(10, 7))
     plt.imshow(img_as_array)
-    title_font_dict = {'fontsize':'10'}
+    title_font_dict = {"fontsize": "10"}
     plt.title(
-        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]", fontdict=title_font_dict
+        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]",
+        fontdict=title_font_dict,
     )
     plt.axis(False)
 
