@@ -78,7 +78,7 @@ def get_compose_env(c, loc="docker", name=None):
     Vault variables
     """
     env = copy.copy(c[loc]["env"])
-    env["VERSION"] = '0.0.1'
+    env["VERSION"] = "0.0.1"
     env["NAME"] = c["name"]
 
     # environment variables have priority over what's inside invoke.yaml

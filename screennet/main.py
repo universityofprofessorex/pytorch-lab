@@ -8,8 +8,8 @@
 import os
 import os.path
 import pathlib
-import pandas as pd
-# from rich_dataframe import prettify
+import platform
+from tqdm.auto import tqdm
 
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
@@ -18,7 +18,10 @@ import pandas as pd
 import sys
 
 import bpdb
-import platform
+import pandas as pd
+
+# from rich_dataframe import prettify
+
 
 extra_modules_path_api = pathlib.Path("../going_modular")
 extra_modules_path = os.path.abspath(str(extra_modules_path_api))
@@ -29,26 +32,24 @@ sys.path.append(extra_modules_path)
 sys.path.append("../")
 # import better_exceptions
 import better_exceptions
-
-# from rich.traceback import install
-# install(show_locals=True)
-from icecream import ic
+import devices  # pylint: disable=import-error
 import rich
-from rich import inspect, print
-from rich.console import Console
-from rich.table import Table
-from rich import box
 
 # ---------------------------------------------------------------------------
 import torch
 import torchvision
-from torchvision import datasets, transforms
 
-import devices  # pylint: disable=import-error
+# from rich.traceback import install
+# install(show_locals=True)
+from icecream import ic
+from rich import box, inspect, print
+from rich.console import Console
+from rich.table import Table
+from torchvision import datasets, transforms
 
 better_exceptions.hook()
 
-console = Console()
+console: Console = Console()
 # ---------------------------------------------------------------------------
 
 
@@ -60,18 +61,18 @@ assert (
 # print(f"torchvision version: {torchvision.__version__}")
 # ---------------------------------------------------------------------------
 
-# breakpoint()
-from going_modular import data_setup, engine  # pylint: disable=no-name-in-module
-
 # Continue with regular imports
 import matplotlib.pyplot as plt
 import mlxtend
 import torch
-from torch import nn
-from torchinfo import summary
 import torchmetrics
 import torchvision
+from torch import nn
+from torchinfo import summary
 from torchvision import transforms
+
+# breakpoint()
+from going_modular import data_setup, engine, utils  # pylint: disable=no-name-in-module
 
 # Try to get torchinfo, install it if it doesn't work
 
@@ -82,28 +83,19 @@ assert (
 ), "mlxtend verison should be 0.19.0 or higher"
 
 import argparse
-from enum import Enum
-from itertools import product
 import os
-from pathlib import Path
 import random
 import shutil
-from timeit import default_timer as timer
-from urllib.parse import urlparse
 import warnings
 import zipfile
+from enum import Enum
+from itertools import product
+from pathlib import Path
+from timeit import default_timer as timer
+from typing import List, Optional, Tuple, Union, Dict
+from urllib.parse import urlparse
 
-from typing import List, Tuple, Optional, Union
-
-from PIL import Image
-
-# Import accuracy metric
-from helper_functions import (
-    accuracy_fn,
-    plot_loss_curves,
-)  # Note: could also use torchmetrics.Accuracy()
 import matplotlib
-from mlxtend.plotting import plot_confusion_matrix
 import numpy as np
 import numpy.typing as npt
 import requests
@@ -117,15 +109,68 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim
-from torch.optim.lr_scheduler import StepLR
 import torch.utils.data
-from torch.utils.data import Subset
 import torch.utils.data.distributed
-from torchmetrics import ConfusionMatrix
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+from mlxtend.plotting import plot_confusion_matrix
+from PIL import Image
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import Subset
+from torch.utils.tensorboard import SummaryWriter
+from torchmetrics import ConfusionMatrix
 from watermark import watermark
+
+# Import accuracy metric
+from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
+    accuracy_fn,
+    plot_loss_curves,
+)
+import torch.profiler
+
+
+def create_writer(
+    experiment_name: str, model_name: str, extra: str = None
+) -> SummaryWriter:
+    """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
+
+    log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
+
+    Where timestamp is the current date in YYYY-MM-DD format.
+
+    Args:
+        experiment_name (str): Name of experiment.
+        model_name (str): Name of model.
+        extra (str, optional): Anything extra to add to the directory. Defaults to None.
+
+    Returns:
+        torch.utils.tensorboard.writer.SummaryWriter(): Instance of a writer saving to log_dir.
+
+    Example usage:
+        # Create a writer saving to "runs/2022-06-04/data_10_percent/effnetb2/5_epochs/"
+        writer = create_writer(experiment_name="data_10_percent",
+                               model_name="effnetb2",
+                               extra="5_epochs")
+        # The above is the same as:
+        writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
+    """
+    import os
+    from datetime import datetime
+
+    # Get timestamp of current date (all experiments on certain day live in same folder)
+    timestamp = datetime.now().strftime(
+        "%Y-%m-%d"
+    )  # returns current date in YYYY-MM-DD format
+
+    if extra:
+        # Create log directory path
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+
+    print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
+    return SummaryWriter(log_dir=log_dir)
 
 
 def download_and_predict(
@@ -303,7 +348,7 @@ def run_train(
     optimizer: torch.optim.Optimizer,
     epochs: int,
     device: torch.device,
-    batch_size: int
+    batch_size: int,
 ):
     print("No other options selected so we are training this model....")
     # ic(model)
@@ -315,6 +360,15 @@ def run_train(
     ic(device)
 
     start_time = timer()
+
+    # # Create an example writer
+    # example_writer = create_writer(
+    #     experiment_name="basic", model_name="effnetb0", extra="5_epochs"
+    # )
+
+    dataloader_name = "basic"
+    ic(dataloader_name)
+
     # Setup training and save the results
     results = engine.train(
         model=model,
@@ -324,33 +378,59 @@ def run_train(
         loss_fn=loss_fn,
         epochs=epochs,
         device=device,
+        writer=create_writer(
+            experiment_name=dataloader_name,
+            model_name=model.name,
+            extra=f"{epochs}_epochs",
+        ),
     )
 
     # End the timer and print out how long it took
     end_time = timer()
     # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
     # Print out timer and results
-    total_train_time = print_train_time(start=start_time,
-                                        end=end_time,
-                                        device=device,
-                                        machine="silicontop")
+    total_train_time = print_train_time(
+        start=start_time, end=end_time, device=device, machine="silicontop"
+    )
 
-    dataset_name="twitter_facebook_tiktok"
+    # 10. Save the model to file so we can get back the best model
+    save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+    utils.save_model(model=model, target_dir="models", model_name=save_filepath)
+    print("-" * 50 + "\n")
 
-    write_results_to_csv("silicontop", device, dataset_name=dataset_name, num_epochs=epochs, batch_size=batch_size, image_size=(224, 224), train_data=train_dataloader.dataset, test_data=test_dataloader.dataset, total_train_time=total_train_time, model=model)
+    dataset_name = "twitter_facebook_tiktok"
+
+    write_results_to_csv(
+        "silicontop",
+        device,
+        dataset_name=dataset_name,
+        num_epochs=epochs,
+        batch_size=batch_size,
+        image_size=(224, 224),
+        train_data=train_dataloader.dataset,
+        test_data=test_dataloader.dataset,
+        total_train_time=total_train_time,
+        model=model,
+    )
 
     results_df = inspect_csv_results()
     ic("Plot performance benchmarks")
     # Get names of devices
-    machine_and_device_list = [row[1][0] + " (" + row[1][1] + ")" for row in results_df[["machine", "device"]].iterrows()]
+    machine_and_device_list = [
+        row[1][0] + " (" + row[1][1] + ")"
+        for row in results_df[["machine", "device"]].iterrows()
+    ]
 
     # Plot and save figure
     plt.figure(figsize=(10, 7))
-    plt.style.use('fivethirtyeight')
+    plt.style.use("fivethirtyeight")
     plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
-    plt.title(f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}", size=16)
+    plt.title(
+        f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}",
+        size=16,
+    )
     plt.xlabel("Machine (device)", size=14)
-    plt.ylabel("Seconds per epoch (lower is better)", size=14);
+    plt.ylabel("Seconds per epoch (lower is better)", size=14)
     save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
     print(f"Saving figure to '{save_path}'")
     plt.savefig(save_path)
@@ -358,21 +438,33 @@ def run_train(
     ic("Plot the loss curves of our model")
     plot_loss_curves(results, to_disk=True)
 
+
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
-def write_results_to_csv(MACHINE, device, dataset_name="", num_epochs="", batch_size="", image_size="", train_data="", test_data="", total_train_time="", model=""):
+def write_results_to_csv(
+    MACHINE,
+    device,
+    dataset_name="",
+    num_epochs="",
+    batch_size="",
+    image_size="",
+    train_data="",
+    test_data="",
+    total_train_time="",
+    model="",
+):
     # Create results dict
     results = {
-    "machine": MACHINE,
-    "device": device,
-    "dataset_name": dataset_name,
-    "epochs": num_epochs,
-    "batch_size": batch_size,
-    "image_size": image_size[0],
-    "num_train_samples": len(train_data),
-    "num_test_samples": len(test_data),
-    "total_train_time": round(total_train_time, 3),
-    "time_per_epoch": round(total_train_time/num_epochs, 3),
-    "model": model.__class__.__name__
+        "machine": MACHINE,
+        "device": device,
+        "dataset_name": dataset_name,
+        "epochs": num_epochs,
+        "batch_size": batch_size,
+        "image_size": image_size[0],
+        "num_train_samples": len(train_data),
+        "num_test_samples": len(test_data),
+        "total_train_time": round(total_train_time, 3),
+        "time_per_epoch": round(total_train_time / num_epochs, 3),
+        "model": model.__class__.__name__,
     }
 
     results_df = pd.DataFrame(results, index=[0])
@@ -381,8 +473,11 @@ def write_results_to_csv(MACHINE, device, dataset_name="", num_epochs="", batch_
     if not os.path.exists("results/"):
         os.makedirs("results/")
 
-    results_df.to_csv(f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
-                      index=False)
+    results_df.to_csv(
+        f"results/{MACHINE.lower().replace(' ', '_')}_{device}_{dataset_name}_image_size.csv",
+        index=False,
+    )
+
 
 def df_to_table(
     pandas_dataframe: pd.DataFrame,
@@ -413,17 +508,18 @@ def df_to_table(
 
     return rich_table
 
-def inspect_csv_results():
-    results_paths = list(Path("results").glob("*.csv"))
 
-    df_list = []
-    for path in results_paths:
-        df_list.append(pd.read_csv(path))
-    results_df = pd.concat(df_list).reset_index(drop=True)
-    # prettify(results_df)
-
+def console_print_table(results_df: pd.DataFrame):
     # Initiate a Table instance to be modified
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(
+        show_header=True,
+        header_style="bold magenta",
+        box=box.DOUBLE,
+        expand=True,
+        show_lines=True,
+        show_edge=True,
+        show_footer=True,
+    )
 
     # Modify the table instance to have the data from the DataFrame
     table = df_to_table(results_df, table)
@@ -433,7 +529,31 @@ def inspect_csv_results():
     table.box = box.SIMPLE_HEAD
 
     console.print(table)
+
+
+def inspect_csv_results():
+    results_paths = list(Path("results").glob("*.csv"))
+
+    df_list = []
+    for path in results_paths:
+        df_list.append(pd.read_csv(path))
+    results_df = pd.concat(df_list).reset_index(drop=True)
+    # prettify(results_df)
+
+    # # Initiate a Table instance to be modified
+    # table = Table(show_header=True, header_style="bold magenta")
+
+    # # Modify the table instance to have the data from the DataFrame
+    # table = df_to_table(results_df, table)
+
+    # # Update the style of the table
+    # table.row_styles = ["none", "dim"]
+    # table.box = box.SIMPLE_HEAD
+
+    # console.print(table)
+    console_print_table(results_df)
     return results_df
+
 
 def walk_through_dir(dir_path):
     """
@@ -502,7 +622,9 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
 
 
 # boss: use this to instantiate a new model class with all the proper setup as before
-def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Module:
+def create_effnetb0_model(
+    device: str, class_names: List[str], args: argparse.Namespace
+) -> torch.nn.Module:
     """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
 
     Args:
@@ -513,9 +635,10 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
         _type_: _description_
     """
     # NEW: Setup the model with pretrained weights and send it to the target device (torchvision v0.13+)
-    weights = (
-        torchvision.models.EfficientNet_B0_Weights.DEFAULT
-    )  # .DEFAULT = best available weights
+    weights = models.__dict__[args.model_weights].DEFAULT
+    # weights = (
+    #     torchvision.models.EfficientNet_B0_Weights.DEFAULT
+    # )  # .DEFAULT = best available weights
     model = torchvision.models.efficientnet_b0(weights=weights).to(device)
 
     # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
@@ -523,8 +646,7 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
         param.requires_grad = False
 
     # Set the manual seeds
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
+    validate_seed(args.seed)
 
     # Get the length of class_names (one output unit for each class)
     output_shape = len(class_names)
@@ -538,6 +660,10 @@ def setup_efficientnet_model(device: str, class_names: List[str]) -> torch.nn.Mo
             bias=True,
         ),
     ).to(device)
+
+    # 5. Give the model a name
+    model.name = "effnetb0"
+    print(f"[INFO] Created new {model.name} model.")
 
     return model
 
@@ -664,11 +790,24 @@ parser.add_argument(
     help="path to image to run prediction on (default: none)",
 )
 parser.add_argument(
+    "--weights",
+    default="",
+    type=str,
+    metavar="WEIGHTS_PATH",
+    help="pLoad saved weights (default: ''",
+)
+parser.add_argument(
     "-e",
     "--evaluate",
     dest="evaluate",
     action="store_true",
     help="evaluate model on validation set",
+)
+parser.add_argument(
+    "--test",
+    dest="test",
+    action="store_true",
+    help="test model on validation set",
 )
 parser.add_argument(
     "--info",
@@ -809,12 +948,14 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         weights = models.__dict__[args.model_weights].DEFAULT
         auto_transforms = weights.transforms()
         model = models.__dict__[args.arch](weights=weights).to(device)
+        model.name = args.arch
     else:
         ic("=> creating model '{}'".format(args.arch))
         # breakpoint()
         # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
         # auto_transforms = weights.transforms()
         model = models.__dict__[args.arch]()
+        model.name = args.arch
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         ic("using CPU, this will be slow")
@@ -958,13 +1099,19 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-
     # # define loss function (criterion), optimizer, and learning rate scheduler
     # # criterion = nn.CrossEntropyLoss().to(device)
     # # Define loss and optimizer
     # loss_fn = nn.CrossEntropyLoss().to(device)
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    if args.weights:
+        ic(f"loading weights from -> {args.weights}")
+        # loaded_model: nn.Module
+        model = run_get_model_for_inference(
+            model, device, class_names, args.weights, args
+        )
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -1000,7 +1147,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     else:
         train_sampler = None
         val_sampler = None
-
 
     if args.info:
         info(args, dataset_root_dir=image_path)
@@ -1057,6 +1203,18 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # validate(val_loader, model, criterion, args)
         return
 
+    if args.test:
+        print(" Running test command ...")
+        test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
+        pred_dicts = pred_and_store(
+            test_data_paths, model, auto_transforms, class_names, device
+        )
+        pred_df = pd.DataFrame(pred_dicts)
+        # breakpoint()
+        # pred_df.head()
+        console_print_table(pred_df)
+        return
+
     ic(
         run_train(
             model,
@@ -1066,15 +1224,28 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             optimizer,
             args.epochs,
             device,
-            args.batch_size
+            args.batch_size,
         )
     )
     print("No other options selected so we are training this model....")
 
     path_to_model = save_model_to_disk("ScreenNetV1", model)
 
+    loaded_model_for_inference: nn.Module
     loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names, path_to_model
+        model, device, class_names, path_to_model, args
+    )
+
+    # FIXME: ic| 'lets make a 3 predictions on some random images'
+    # FIXME: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same device
+    # FIXME: Error Class: <class 'RuntimeError'>
+    # FIXME: [UNEXPECTED] RuntimeError: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same
+    # FIXME: device
+    # FIXME: exc_type: <class 'RuntimeError'>
+    # FIXME: lets make a 3 predictions on some random images
+    ic("lets make a 3 predictions on some random images")
+    get_random_perdictions_and_plots(
+        loaded_model_for_inference, test_dir=test_dir, class_names=class_names
     )
 
     cmat = compute_confusion_matrix(model, test_dataloader, device)
@@ -1082,223 +1253,28 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         cmat, class_names, to_disk=True, fname="confusion-matrix.png"
     )
 
-    # for epoch in range(args.start_epoch, args.epochs):
-    #     if args.distributed:
-    #         train_sampler.set_epoch(epoch)
 
-    #     # train for one epoch
-    #     ic(train(train_loader, model, criterion, optimizer, epoch, device, args))
+def get_random_perdictions_and_plots(
+    best_model: nn.Module,
+    test_dir: pathlib.PosixPath = "",
+    class_names: List[str] = None,
+):
+    num_images_to_plot = 3
+    test_image_path_list = list(
+        Path(test_dir).glob("*/*.jpg")
+    )  # get all test image paths from 20% dataset
+    test_image_path_sample = random.sample(
+        population=test_image_path_list, k=num_images_to_plot
+    )  # randomly select k number of images
 
-    #     # evaluate on validation set
-    #     acc1, test_loss, test_acc = validate(val_loader, model, criterion, args)
-
-    #     # scheduler.step()
-
-    #     # remember best acc@1 and save checkpoint
-    #     is_best = acc1 > best_acc1
-    #     best_acc1 = max(acc1, best_acc1)
-
-    #     if not args.multiprocessing_distributed or (
-    #         args.multiprocessing_distributed and args.rank % ngpus_per_node == 0
-    #     ):
-    #         save_checkpoint(
-    #             {
-    #                 "epoch": epoch + 1,
-    #                 "arch": args.arch,
-    #                 "state_dict": model.state_dict(),
-    #                 "best_acc1": best_acc1,
-    #                 "optimizer": optimizer.state_dict(),
-    #                 # "scheduler": scheduler.state_dict(),
-    #             },
-    #             is_best,
-    #         )
-
-
-# def train(
-#     train_loader: torch.utils.data.DataLoader,
-#     model: torch.nn.Module,
-#     criterion: torch.nn.Module,
-#     optimizer: torch.optim.Optimizer,
-#     epoch: int,
-#     device: torch.device,
-#     args: argparse.Namespace,
-# ) -> Tuple[float, float]:
-#     batch_time = AverageMeter("Time", ":6.3f")
-#     data_time = AverageMeter("Data", ":6.3f")
-#     losses = AverageMeter("Loss", ":.4e")
-#     top1 = AverageMeter("Acc@1", ":6.2f")
-#     top5 = AverageMeter("Acc@5", ":6.2f")
-#     progress = ProgressMeter(
-#         len(train_loader),
-#         [batch_time, data_time, losses, top1, top5],
-#         prefix="Epoch: [{}]".format(epoch),
-#     )
-
-#     # switch to train mode
-#     model.train()
-
-#     # Setup train loss and train accuracy values
-#     train_loss, train_acc = 0, 0
-
-#     end = time.time()
-#     for i, (images, target) in enumerate(train_loader):
-#         # measure data loading time
-#         data_time.update(time.time() - end)
-
-#         # Send data to target device
-#         # move data to the same device as model
-#         images: torch.Tensor
-#         target: torch.Tensor
-#         images = images.to(device, non_blocking=True)
-#         target = target.to(device, non_blocking=True)
-
-#         ic(next(model.parameters()).device)
-
-#         # 1. Forward pass (logits)
-#         y_pred: torch.Tensor
-#         output: torch.Tensor
-#         y_pred = output = model(images)
-
-#         # 2. Calculate  and accumulate loss
-#         # compute output
-#         loss: torch.Tensor
-#         loss = criterion(output, target)
-
-#         # measure accuracy and record loss
-#         acc1, acc5 = ic(accuracy(output, target, topk=(1, 5)))
-#         losses.update(loss.item(), images.size(0))
-#         top1.update(acc1[0], images.size(0))
-#         top5.update(acc5[0], images.size(0))
-
-#         # compute gradient and do SGD step
-#         # 3. Optimizer zero grad
-#         optimizer.zero_grad()
-
-#         # 4. Loss backward
-#         loss.backward()
-
-#         # 5. Optimizer step
-#         optimizer.step()
-
-#         # Calculate and accumulate accuracy metric across all batches
-#         y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
-#         train_acc += (y_pred_class == target).sum().item() / len(y_pred)
-
-#         # measure elapsed time
-#         batch_time.update(time.time() - end)
-#         end = time.time()
-
-#         if i % args.print_freq == 0:
-#             progress.display(i + 1)
-
-#     # Adjust metrics to get average loss and accuracy per batch
-#     train_loss = train_loss / len(train_loader)
-#     train_acc = train_acc / len(train_loader)
-#     return train_loss, train_acc
-
-
-# def validate(
-#     val_loader: torch.utils.data.DataLoader,
-#     model: torch.nn.Module,
-#     criterion: torch.nn.Module,
-#     args: argparse.Namespace,
-# ) -> Tuple[int, float, float]:
-#     def run_validate(loader, base_progress=0):
-
-#         # Setup test loss and test accuracy values
-#         test_loss, test_acc = 0, 0
-
-#         # Turn on no grad context manager
-#         # with torch.no_grad():
-#         with torch.inference_mode():
-#             end = time.time()
-#             # Loop through DataLoader batches
-#             for i, (images, target) in enumerate(loader):
-#                 i = base_progress + i
-#                 if args.gpu is not None and torch.cuda.is_available():
-#                     images = images.cuda(args.gpu, non_blocking=True)
-#                     ic("GPU mode")
-#                 if torch.backends.mps.is_available():
-#                     images = images.to("mps")
-#                     target = target.to("mps")
-#                     ic("MPS mode")
-#                 if torch.cuda.is_available():
-#                     target = target.cuda(args.gpu, non_blocking=True)
-#                     ic("Cuda mode")
-
-#                 # compute output
-#                 # 1. Forward pass
-#                 test_pred_logits = output = model(images)
-
-#                 # 2. Calculate and accumulate loss
-#                 loss = criterion(output, target)
-#                 test_loss += loss.item()
-
-#                 # measure accuracy and record loss
-#                 acc1, acc5 = accuracy(output, target, topk=(1, 5))
-#                 losses.update(loss.item(), images.size(0))
-#                 top1.update(acc1[0], images.size(0))
-#                 top5.update(acc5[0], images.size(0))
-
-#                 # Calculate and accumulate accuracy
-#                 test_pred_labels = test_pred_logits.argmax(dim=1)
-#                 test_acc += (test_pred_labels == target).sum().item() / len(
-#                     test_pred_labels
-#                 )
-
-#                 # measure elapsed time
-#                 batch_time.update(time.time() - end)
-#                 end = time.time()
-
-#                 if i % args.print_freq == 0:
-#                     progress.display(i + 1)
-
-#     batch_time = AverageMeter("Time", ":6.3f", Summary.NONE)
-#     losses = AverageMeter("Loss", ":.4e", Summary.NONE)
-#     top1 = AverageMeter("Acc@1", ":6.2f", Summary.AVERAGE)
-#     top5 = AverageMeter("Acc@5", ":6.2f", Summary.AVERAGE)
-#     progress = ProgressMeter(
-#         len(val_loader)
-#         + (
-#             args.distributed
-#             and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))
-#         ),
-#         [batch_time, losses, top1, top5],
-#         prefix="Test: ",
-#     )
-
-#     # switch to evaluate mode
-#     model.eval()
-
-#     run_validate(val_loader)
-#     if args.distributed:
-#         top1.all_reduce()
-#         top5.all_reduce()
-
-#     if args.distributed and (
-#         len(val_loader.sampler) * args.world_size < len(val_loader.dataset)
-#     ):
-#         aux_val_dataset = Subset(
-#             val_loader.dataset,
-#             range(len(val_loader.sampler) * args.world_size, len(val_loader.dataset)),
-#         )
-#         aux_val_loader = torch.utils.data.DataLoader(
-#             aux_val_dataset,
-#             batch_size=args.batch_size,
-#             shuffle=False,
-#             num_workers=args.workers,
-#             pin_memory=True,
-#         )
-#         run_validate(aux_val_loader, len(val_loader))
-
-#     progress.display_summary()
-
-#     # Adjust metrics to get average loss and accuracy per batch
-#     test_loss = test_loss / len(val_loader)
-#     test_acc = test_acc / len(val_loader)
-#     # return test_loss, test_acc
-
-#     return top1.avg, test_loss, test_acc
+    # Iterate through random test image paths, make predictions on them and plot them
+    for image_path in test_image_path_sample:
+        pred_and_plot_image(
+            model=best_model,
+            image_path=image_path,
+            class_names=class_names,
+            image_size=(224, 224),
+        )
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -1506,6 +1482,9 @@ def pred_and_plot_image(
     # 9. Convert prediction probabilities -> prediction labels
     target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
 
+    image_path_api = pathlib.Path(image_path).resolve()
+    plot_fname = f"prediction-{model.name}-{image_path_api.stem}.png"
+
     # 10. Plot image with predicted label and probability
     plot_image_with_predicted_label(
         to_disk=True,
@@ -1513,7 +1492,7 @@ def pred_and_plot_image(
         target_image_pred_label=target_image_pred_label,
         target_image_pred_probs=target_image_pred_probs,
         class_names=class_names,
-        fname=f"example.png",
+        fname=plot_fname,
     )
 
 
@@ -1539,6 +1518,7 @@ def run_get_model_for_inference(
     device: torch.device,
     class_names: List[str],
     path_to_model: pathlib.PosixPath,
+    args: argparse.Namespace,
 ) -> torch.nn.Module:
     """wrapper function to load model .pth file from disk
 
@@ -1551,7 +1531,7 @@ def run_get_model_for_inference(
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
     loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names
+        path_to_model, device, class_names, args
     )
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
@@ -1583,12 +1563,16 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 def load_model_for_inference(
-    save_path: str, device: str, class_names: List[str]
+    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
 ) -> nn.Module:
-    model = setup_efficientnet_model(device, class_names)
+    model = create_effnetb0_model(device, class_names, args)
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
+    # Get the model size in bytes then convert to megabytes
+    model_size = Path(save_path).stat().st_size // (1024 * 1024)
+    print(f"EfficientNetB2 feature extractor model size: {model_size} MB")
+
     # get_model_summary(model)
     return model
 
@@ -1628,6 +1612,13 @@ def plot_image_with_predicted_label(
 
 
 def validate_seed(seed: int):
+    """Sets random sets for torch operations.
+
+    Note: Recall a random seed is a way of flavouring the randomness generated by a computer. They aren't necessary to always set when running machine learning code, however, they help ensure there's an element of reproducibility (the numbers I get with my code are similar to the numbers you get with your code). Outside of an education or experimental setting, random seeds generally aren't required.
+
+    Args:
+        seed (int): _description_
+    """
     ic(seed, type(seed))
     devices.seed_everything(seed)
 
@@ -1715,6 +1706,7 @@ def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
 
+
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
 def print_train_time(start, end, device=None, machine=None):
     """Prints difference between start and end time.
@@ -1726,10 +1718,89 @@ def print_train_time(start, end, device=None, machine=None):
     """
     total_time = end - start
     if device:
-        print(f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n")
+        print(
+            f"\nTrain time on {machine} using PyTorch device {device}: {total_time:.3f} seconds\n"
+        )
     else:
         print(f"\nTrain time: {total_time:.3f} seconds\n")
     return round(total_time, 3)
+
+
+# SOURCE: https://www.learnpytorch.io/09_pytorch_model_deployment/
+# 1. Create a function to return a list of dictionaries with sample, truth label, prediction, prediction probability and prediction time
+def pred_and_store(
+    paths: List[pathlib.Path],
+    model: torch.nn.Module,
+    transform: torchvision.transforms,
+    class_names: List[str],
+    device: torch.device = "",
+) -> List[Dict]:
+
+    ic(paths)
+    ic(model.name)
+    ic(transform)
+    ic(class_names)
+    ic(device)
+    # 2. Create an empty list to store prediction dictionaires
+    pred_list = []
+
+    # 3. Loop through target paths
+    for path in tqdm(paths):
+
+        # 4. Create empty dictionary to store prediction information for each sample
+        pred_dict = {}
+
+        # 5. Get the sample path and ground truth class name
+        pred_dict["image_path"] = path
+        class_name = path.parent.stem
+        pred_dict["class_name"] = class_name
+
+        # 6. Start the prediction timer
+        start_time = timer()
+
+        # 7. Open image path
+        img = Image.open(path)
+
+        # 8. Transform the image, add batch dimension and put image on target device
+        # transformed_image = transform(img).unsqueeze(dim=0).to(device)
+        transformed_image = transform(img).unsqueeze(dim=0)
+
+        # 9. Prepare model for inference by sending it to target device and turning on eval() mode
+        model.to(device)
+        model.eval()
+
+        # 10. Get prediction probability, predicition label and prediction class
+        with torch.inference_mode():
+            pred_logit = model(
+                transformed_image.to(device)
+            )  # perform inference on target sample
+            pred_prob = torch.softmax(
+                pred_logit, dim=1
+            )  # turn logits into prediction probabilities
+            pred_label = torch.argmax(
+                pred_prob, dim=1
+            )  # turn prediction probabilities into prediction label
+            pred_class = class_names[
+                pred_label.cpu()
+            ]  # hardcode prediction class to be on CPU
+
+            # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
+            pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
+            pred_dict["pred_class"] = pred_class
+
+            # 12. End the timer and calculate time per pred
+            end_time = timer()
+            pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+
+        # 13. Does the pred match the true label?
+        pred_dict["correct"] = class_name == pred_class
+
+        # 14. Add the dictionary to the list of preds
+        pred_list.append(pred_dict)
+
+    # 15. Return list of prediction dictionaries
+    return pred_list
+
 
 if __name__ == "__main__":
     import traceback

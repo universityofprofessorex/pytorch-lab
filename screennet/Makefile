@@ -8,7 +8,7 @@ mypy:
 	mypy --follow-imports=silent --ignore-missing-imports --show-column-numbers --no-pretty main.py
 
 black:
-	black *.py
+	black .
 
 isort:
 	isort --atomic .
@@ -33,3 +33,8 @@ pynguin:
         --output-path /tmp/pynguin-results \
         --module-name main \
         -v
+memray:
+	memray run --live main.py
+
+tensorboard:
+	tensorboard --logdir runs/

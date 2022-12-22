@@ -25,6 +25,7 @@ from logging import Logger, LogRecord
 import os
 from pathlib import Path
 from pprint import pformat
+
 # import slack
 import sys
 from time import process_time
@@ -35,10 +36,10 @@ from typing import TYPE_CHECKING, Any, Deque, Dict, Optional, Union, cast
 from loguru import logger
 from loguru._defaults import LOGURU_FORMAT
 
+
 class LoggerPatch(BaseModel):
     name: str
     level: str
-
 
 
 class LoggerModel(BaseModel):
@@ -51,7 +52,6 @@ class LoggerModel(BaseModel):
 
 
 LoggerModel.update_forward_refs()
-
 
 
 # SOURCE: https://github.com/joint-online-judge/fastapi-rest-framework/blob/b0e93f0c0085597fcea4bb79606b653422f16700/fastapi_rest_framework/logging.py#L43
@@ -137,6 +137,7 @@ class InterceptHandler(logging.Handler):
             record.getMessage(),
         )
 
+
 # """ Logging handler intercepting existing handlers to redirect them to loguru """
 class LoopDetector(logging.Filter):
     """
@@ -205,14 +206,12 @@ def get_logger(
                 "enqueue": True,
                 "diagnose": True,
             },
-        
         ],
-        
     }
 
     logger.remove()
     logger.configure(**config)
-    
+
     logger.add(
         sys.stdout,
         format=format_record,

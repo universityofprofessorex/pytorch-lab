@@ -7,15 +7,18 @@ import os
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from typing import Tuple, List
+
 # from utils import display_ascii_text
 import pyfiglet
 from rich import print
 
 NUM_WORKERS = os.cpu_count()
 
+
 def display_ascii_text(txt: str, font: str = "stop"):
     title = pyfiglet.figlet_format(txt, font=font)
-    print(f'[magenta]{title}[/magenta]')
+    print(f"[magenta]{title}[/magenta]")
+
 
 def create_dataloaders(
     train_dir: str,
