@@ -130,6 +130,124 @@ from helper_functions import (  # Note: could also use torchmetrics.Accuracy()
     plot_loss_curves,
 )
 import torch.profiler
+import fastai
+from fastai.data.transforms import get_image_files
+
+
+def predict_from_dir(
+    path_to_image_from_cli: str,
+    model: torch.nn.Module,
+    transforms: torchvision.transforms,
+    class_names: List[str],
+    device: torch.device,
+    args: argparse.Namespace,
+):
+    """wrapper function to perform predictions on individual files
+
+    Args:
+        path_to_image_from_cli (str): eg.  "/Users/malcolm/Downloads/2020-11-25_10-47-32_867.jpeg
+        model (torch.nn.Module): _description_
+        transform (torchvision.transforms): _description_
+        class_names (List[str]): _description_
+        device (torch.device): _description_
+        args (argparse.Namespace): _description_
+    """
+    ic(f"Predict | directory {path_to_image_from_cli} ...")
+    image_folder_api = get_image_files(path_to_image_from_cli)
+    ic(image_folder_api)
+
+    # paths = []
+    # paths.append(image_folder_api)
+    # # image_class = paths[0].parent.stem
+    # # 4. Open image
+    # img = Image.open(paths[0])
+
+    # pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
+
+    # image_class = pred_dicts[0]["pred_class"]
+    # image_pred_prob = pred_dicts[0]["pred_prob"]
+    # image_time_for_pred = pred_dicts[0]["time_for_pred"]
+
+    # # 5. Print metadata
+    # print(f"Random image path: {paths[0]}")
+    # print(f"Image class: {image_class}")
+    # print(f"Image pred prob: {image_pred_prob}")
+    # print(f"Image pred time: {image_time_for_pred}")
+    # print(f"Image height: {img.height}")
+    # print(f"Image width: {img.width}")
+
+    # # print prediction info to rich table
+    # pred_df = pd.DataFrame(pred_dicts)
+    # console_print_table(pred_df)
+
+    # plot_fname = (
+    #     f"prediction-{model.name}-{image_folder_api.stem}{image_folder_api.suffix}"
+    # )
+
+    # from_pil_image_to_plt_display(
+    #     img,
+    #     pred_dicts,
+    #     to_disk=args.to_disk,
+    #     interactive=args.interactive,
+    #     fname=plot_fname,
+    # )
+
+
+def predict_from_file(
+    path_to_image_from_cli: str,
+    model: torch.nn.Module,
+    transforms: torchvision.transforms,
+    class_names: List[str],
+    device: torch.device,
+    args: argparse.Namespace,
+):
+    """wrapper function to perform predictions on individual files
+
+    Args:
+        path_to_image_from_cli (str): eg.  "/Users/malcolm/Downloads/2020-11-25_10-47-32_867.jpeg
+        model (torch.nn.Module): _description_
+        transform (torchvision.transforms): _description_
+        class_names (List[str]): _description_
+        device (torch.device): _description_
+        args (argparse.Namespace): _description_
+    """
+    ic(f"Predict | individual file {path_to_image_from_cli} ...")
+    image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
+    ic(image_path_api)
+
+    paths = []
+    paths.append(image_path_api)
+    # image_class = paths[0].parent.stem
+    # 4. Open image
+    img = Image.open(paths[0])
+
+    pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
+
+    image_class = pred_dicts[0]["pred_class"]
+    image_pred_prob = pred_dicts[0]["pred_prob"]
+    image_time_for_pred = pred_dicts[0]["time_for_pred"]
+
+    # 5. Print metadata
+    print(f"Random image path: {paths[0]}")
+    print(f"Image class: {image_class}")
+    print(f"Image pred prob: {image_pred_prob}")
+    print(f"Image pred time: {image_time_for_pred}")
+    print(f"Image height: {img.height}")
+    print(f"Image width: {img.width}")
+
+    # print prediction info to rich table
+    pred_df = pd.DataFrame(pred_dicts)
+    console_print_table(pred_df)
+
+    plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+
+    from_pil_image_to_plt_display(
+        img,
+        pred_dicts,
+        to_disk=args.to_disk,
+        interactive=args.interactive,
+        fname=plot_fname,
+    )
 
 
 # ------------------------------------------------------------
@@ -1336,56 +1454,28 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.predict:
         print(" Running predict command ...")
-        # ic(
-        #     pred_and_plot_image(
-        #         model,
-        #         args.predict,
-        #         class_names,
-        #         image_size=(224, 224),
-        #         # transform: torchvision.transforms = None,
-        #         device=device,
-        #     )
-        # )
         # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
         path_to_image_from_cli = fix_path(args.predict)
-        image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
-        ic(image_path_api)
 
-        paths = []
-        paths.append(image_path_api)
-        # image_class = paths[0].parent.stem
-        # 4. Open image
-        img = Image.open(paths[0])
+        if is_file(path_to_image_from_cli):
+            predict_from_file(
+                path_to_image_from_cli,
+                model,
+                auto_transforms,
+                class_names,
+                device,
+                args,
+            )
 
-        pred_dicts = pred_and_store(paths, model, auto_transforms, class_names, device)
-
-        image_class = pred_dicts[0]["pred_class"]
-        image_pred_prob = pred_dicts[0]["pred_prob"]
-        image_time_for_pred = pred_dicts[0]["time_for_pred"]
-
-        # 5. Print metadata
-        print(f"Random image path: {paths[0]}")
-        print(f"Image class: {image_class}")
-        print(f"Image pred prob: {image_pred_prob}")
-        print(f"Image pred time: {image_time_for_pred}")
-        print(f"Image height: {img.height}")
-        print(f"Image width: {img.width}")
-
-        # print prediction info to rich table
-        pred_df = pd.DataFrame(pred_dicts)
-        console_print_table(pred_df)
-
-        plot_fname = (
-            f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-        )
-
-        from_pil_image_to_plt_display(
-            img,
-            pred_dicts,
-            to_disk=args.to_disk,
-            interactive=args.interactive,
-            fname=plot_fname,
-        )
+        if is_directory(path_to_image_from_cli):
+            predict_from_dir(
+                path_to_image_from_cli,
+                model,
+                auto_transforms,
+                class_names,
+                device,
+                args,
+            )
 
         return
 
