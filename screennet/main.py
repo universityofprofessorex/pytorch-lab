@@ -137,6 +137,15 @@ import torchvision.transforms.functional as pytorch_transforms_functional
 # SOURCE: https://github.com/pytorch/pytorch/issues/78924
 torch.set_num_threads(1)
 
+# SOURCE: https://github.com/pytorch/vision/blob/main/references/classification/train.py
+def _get_cache_path(filepath):
+    import hashlib
+
+    h = hashlib.sha1(filepath.encode()).hexdigest()
+    cache_path = os.path.join("~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt")
+    cache_path = os.path.expanduser(cache_path)
+    return cache_path
+
 
 def get_pil_image_channels(image_path: str) -> int:
     # load pillow image
