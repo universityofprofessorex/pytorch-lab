@@ -9,6 +9,7 @@ import os
 import os.path
 import pathlib
 import platform
+from tqdm.auto import tqdm
 
 # ---------------------------------------------------------------------------
 # Import rich and whatever else we need
@@ -87,7 +88,7 @@ from enum import Enum
 from itertools import product
 from pathlib import Path
 from timeit import default_timer as timer
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 from urllib.parse import urlparse
 
 import matplotlib
@@ -729,11 +730,24 @@ parser.add_argument(
     help="path to image to run prediction on (default: none)",
 )
 parser.add_argument(
+    "--weights",
+    default="",
+    type=str,
+    metavar="WEIGHTS_PATH",
+    help="pLoad saved weights (default: ''",
+)
+parser.add_argument(
     "-e",
     "--evaluate",
     dest="evaluate",
     action="store_true",
     help="evaluate model on validation set",
+)
+parser.add_argument(
+    "--test",
+    dest="test",
+    action="store_true",
+    help="test model on validation set",
 )
 parser.add_argument(
     "--info",
@@ -1013,6 +1027,11 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+    if args.weights:
+        ic(f"loading weights from -> {args.weights}")
+        # loaded_model: nn.Module
+        model = run_get_model_for_inference(model, device, class_names, args.weights, args)
+
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -1097,6 +1116,14 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # validate(val_loader, model, criterion, args)
         return
 
+    if args.test:
+        print(" Running test command ...")
+        test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
+        pred_dicts = pred_and_store(test_data_paths, model, auto_transforms, class_names, device)
+        pred_df = pd.DataFrame(pred_dicts)
+        pred_df.head()
+        return
+
     ic(
         run_train(
             model,
@@ -1116,7 +1143,13 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     loaded_model_for_inference: nn.Module
     loaded_model_for_inference = run_get_model_for_inference(model, device, class_names, path_to_model, args)
 
-    # lets make a 3 predictions on some random images
+    # FIXME: ic| 'lets make a 3 predictions on some random images'
+    # FIXME: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same device
+    # FIXME: Error Class: <class 'RuntimeError'>
+    # FIXME: [UNEXPECTED] RuntimeError: slow_conv2d_forward_mps: input(device='cpu') and weight(device=mps:0')  must be on the same
+    # FIXME: device
+    # FIXME: exc_type: <class 'RuntimeError'>
+    # FIXME: lets make a 3 predictions on some random images
     ic("lets make a 3 predictions on some random images")
     get_random_perdictions_and_plots(loaded_model_for_inference, test_dir=test_dir, class_names=class_names)
 
@@ -1562,6 +1595,69 @@ def print_train_time(start, end, device=None, machine=None):
         print(f"\nTrain time: {total_time:.3f} seconds\n")
     return round(total_time, 3)
 
+# SOURCE: https://www.learnpytorch.io/09_pytorch_model_deployment/
+# 1. Create a function to return a list of dictionaries with sample, truth label, prediction, prediction probability and prediction time
+def pred_and_store(paths: List[pathlib.Path],
+                   model: torch.nn.Module,
+                   transform: torchvision.transforms,
+                   class_names: List[str],
+                   device: str = "cuda" if torch.cuda.is_available() else "cpu") -> List[Dict]:
+
+    ic(paths)
+    ic(model.name)
+    ic(transform)
+    ic(class_names)
+    ic(device)
+    # 2. Create an empty list to store prediction dictionaires
+    pred_list = []
+
+    # 3. Loop through target paths
+    for path in tqdm(paths):
+
+        # 4. Create empty dictionary to store prediction information for each sample
+        pred_dict = {}
+
+        # 5. Get the sample path and ground truth class name
+        pred_dict["image_path"] = path
+        class_name = path.parent.stem
+        pred_dict["class_name"] = class_name
+
+        # 6. Start the prediction timer
+        start_time = timer()
+
+        # 7. Open image path
+        img = Image.open(path)
+
+        # 8. Transform the image, add batch dimension and put image on target device
+        transformed_image = transform(img).unsqueeze(0).to(device)
+
+        # 9. Prepare model for inference by sending it to target device and turning on eval() mode
+        model.to(device)
+        model.eval()
+
+        # 10. Get prediction probability, predicition label and prediction class
+        with torch.inference_mode():
+            pred_logit = model(transformed_image) # perform inference on target sample
+            pred_prob = torch.softmax(pred_logit, dim=1) # turn logits into prediction probabilities
+            pred_label = torch.argmax(pred_prob, dim=1) # turn prediction probabilities into prediction label
+            pred_class = class_names[pred_label.cpu()] # hardcode prediction class to be on CPU
+
+            # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
+            pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
+            pred_dict["pred_class"] = pred_class
+
+            # 12. End the timer and calculate time per pred
+            end_time = timer()
+            pred_dict["time_for_pred"] = round(end_time-start_time, 4)
+
+        # 13. Does the pred match the true label?
+        pred_dict["correct"] = class_name == pred_class
+
+        # 14. Add the dictionary to the list of preds
+        pred_list.append(pred_dict)
+
+    # 15. Return list of prediction dictionaries
+    return pred_list
 
 if __name__ == "__main__":
     import traceback
