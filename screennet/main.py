@@ -453,8 +453,9 @@ def from_pil_image_to_plt_display(
     # Plot the image with matplotlib
     plt.figure(figsize=(10, 7))
     plt.imshow(img_as_array)
+    title_font_dict = {'fontsize':'10'}
     plt.title(
-        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]"
+        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]", fontdict=title_font_dict
     )
     plt.axis(False)
 
