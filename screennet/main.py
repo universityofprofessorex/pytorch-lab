@@ -39,8 +39,8 @@ import rich
 import torch
 import torchvision
 
-# from rich.traceback import install
-# install(show_locals=True)
+from rich.traceback import install
+install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
 from rich.console import Console
@@ -1456,6 +1456,8 @@ def pred_and_plot_image(
         )
 
     ### Predict on image ###
+    # 8. Transform the image, add batch dimension and put image on target device
+    transformed_image = image_transform(img).unsqueeze(dim=0)
 
     # 4. Make sure the model is on the target device
     model.to(device)
@@ -1464,9 +1466,10 @@ def pred_and_plot_image(
     model.eval()
     with torch.inference_mode():
         # 6. Transform and add an extra dimension to image (model requires samples in [batch_size, color_channels, height, width])
-        transformed_image = image_transform(img).unsqueeze(dim=0)
 
         # 7. Make a prediction on image with an extra dimension and send it to the target device
+        breakpoint()
+        # NOTE: Try running the line below manually, it needs to be on same device.
         target_image_pred = model(transformed_image.to(device))
 
     # 8. Convert logits -> prediction probabilities (using torch.softmax() for multi-class classification)

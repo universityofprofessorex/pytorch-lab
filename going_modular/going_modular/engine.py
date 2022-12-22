@@ -49,34 +49,45 @@ def train_step(
     # Setup train loss and train accuracy values
     train_loss, train_acc = 0, 0
 
-    # Loop through data loader data batches
-    for batch, (X, y) in enumerate(dataloader):
-        # Send data to target device
-        # X, y = X.to(device), y.to(device)
-        # TODO: Might have to remove non_blocking=True
+    with torch.profiler.profile(
+        activities=[
+        torch.profiler.ProfilerActivity.CPU,
+        torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/", worker_name='worker0'),
+        record_shapes=True,
+        profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
+        with_stack=True
+    ) as prof:
+        # Loop through data loader data batches
+        for batch, (X, y) in enumerate(dataloader):
+            # Send data to target device
+            # X, y = X.to(device), y.to(device)
+            # TODO: Might have to remove non_blocking=True
 
-        # Here the .to() method not only takes the device, but also sets non_blocking=True, which enables asynchronous data copies to GPU from pinned memory, hence allowing the CPU to keep operating during the transfer; non_blocking=True is simply a no-op otherwise.
-        X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
+            # Here the .to() method not only takes the device, but also sets non_blocking=True, which enables asynchronous data copies to GPU from pinned memory, hence allowing the CPU to keep operating during the transfer; non_blocking=True is simply a no-op otherwise.
+            X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
-        # 1. Forward pass
-        y_pred = model(X)
+            # 1. Forward pass
+            y_pred = model(X)
 
-        # 2. Calculate  and accumulate loss
-        loss = loss_fn(y_pred, y)
-        train_loss += loss.item()
+            # 2. Calculate  and accumulate loss
+            loss = loss_fn(y_pred, y)
+            train_loss += loss.item()
 
-        # 3. Optimizer zero grad
-        optimizer.zero_grad()
+            # 3. Optimizer zero grad
+            optimizer.zero_grad()
 
-        # 4. Loss backward
-        loss.backward()
+            # 4. Loss backward
+            loss.backward()
 
-        # 5. Optimizer step
-        optimizer.step()
+            # 5. Optimizer step
+            optimizer.step()
 
-        # Calculate and accumulate accuracy metric across all batches
-        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
-        train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+            # Calculate and accumulate accuracy metric across all batches
+            y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+            train_acc += (y_pred_class == y).sum().item() / len(y_pred)
+            prof.step()
 
     # Adjust metrics to get average loss and accuracy per batch
     train_loss = train_loss / len(dataloader)
@@ -202,68 +213,62 @@ def train(
     # Make sure model on target device
     model.to(device)
 
-    with torch.profiler.profile(
-        schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(f"./runs/{model.__class__.__name__}"),
-        record_shapes=True,
-        profile_memory=True,
-        with_stack=True
-    ) as prof:
-        # Loop through training and testing steps for a number of epochs
-        for epoch in tqdm(range(epochs)):
-            print(
-                f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+
+    # Loop through training and testing steps for a number of epochs
+    for epoch in tqdm(range(epochs)):
+        print(
+            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+        )
+        train_loss, train_acc = train_step(
+            model=model,
+            dataloader=train_dataloader,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            device=device,
+        )
+        print(
+            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
+        )
+        test_loss, test_acc = test_step(
+            model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
+        )
+
+        # Print out what's happening
+        print(
+            f"Epoch: {epoch+1} | "
+            f"train_loss: {train_loss:.4f} | "
+            f"train_acc: {train_acc:.4f} | "
+            f"test_loss: {test_loss:.4f} | "
+            f"test_acc: {test_acc:.4f}"
+        )
+
+        # Update results dictionary
+        results["train_loss"].append(train_loss)
+        results["train_acc"].append(train_acc)
+        results["test_loss"].append(test_loss)
+        results["test_acc"].append(test_acc)
+
+        ### New: Use the writer parameter to track experiments ###
+        # See if there's a writer, if so, log to it
+        if writer:
+            # Add results to SummaryWriter
+            writer.add_scalars(
+                main_tag="Loss",
+                tag_scalar_dict={"train_loss": train_loss, "test_loss": test_loss},
+                global_step=epoch,
             )
-            train_loss, train_acc = train_step(
-                model=model,
-                dataloader=train_dataloader,
-                loss_fn=loss_fn,
-                optimizer=optimizer,
-                device=device,
-            )
-            print(
-                f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
-            )
-            test_loss, test_acc = test_step(
-                model=model, dataloader=test_dataloader, loss_fn=loss_fn, device=device
+            writer.add_scalars(
+                main_tag="Accuracy",
+                tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
+                global_step=epoch,
             )
 
-            # Print out what's happening
-            print(
-                f"Epoch: {epoch+1} | "
-                f"train_loss: {train_loss:.4f} | "
-                f"train_acc: {train_acc:.4f} | "
-                f"test_loss: {test_loss:.4f} | "
-                f"test_acc: {test_acc:.4f}"
-            )
+            # Close the writer
+            writer.close()
+        else:
+            pass
+    ### End new ###
 
-            # Update results dictionary
-            results["train_loss"].append(train_loss)
-            results["train_acc"].append(train_acc)
-            results["test_loss"].append(test_loss)
-            results["test_acc"].append(test_acc)
-
-            ### New: Use the writer parameter to track experiments ###
-            # See if there's a writer, if so, log to it
-            if writer:
-                # Add results to SummaryWriter
-                writer.add_scalars(
-                    main_tag="Loss",
-                    tag_scalar_dict={"train_loss": train_loss, "test_loss": test_loss},
-                    global_step=epoch,
-                )
-                writer.add_scalars(
-                    main_tag="Accuracy",
-                    tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
-                    global_step=epoch,
-                )
-
-                # Close the writer
-                writer.close()
-            else:
-                pass
-        ### End new ###
-        prof.step() # Need to call this at the end of each step to notify profiler of steps' boundary.
 
     # Return the filled results at the end of the epochs
     return results
