@@ -40,4 +40,9 @@ download-dataset: setup-dataset-scratch-env
 	unzip -l ./scratch/datasets/twitter_facebook_tiktok.zip
 
 unzip-dataset:
-	unzip -v ./scratch/datasets/twitter_facebook_tiktok.zip -d ./scratch/datasets/
+	unzip ./scratch/datasets/twitter_facebook_tiktok.zip -d './scratch/datasets'
+	rm -fv ./scratch/datasets/twitter_facebook_tiktok.zip
+
+zip-dataset:
+	bash contrib/zip-dataset.sh
+	ls -ltah ./scratch/datasets/twitter_facebook_tiktok.zip
