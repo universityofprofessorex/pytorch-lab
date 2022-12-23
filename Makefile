@@ -25,3 +25,9 @@ conda-env-export:
 
 conda-history:
 	conda env export --from-history
+
+env-works:
+	python ./contrib/is-mps-available.py
+	python ./contrib/does-matplotlib-work.py
+
+env-test: env-works
