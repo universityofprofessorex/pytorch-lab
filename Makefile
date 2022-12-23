@@ -31,3 +31,13 @@ env-works:
 	python ./contrib/does-matplotlib-work.py
 
 env-test: env-works
+
+setup-dataset-scratch-env:
+	bash contrib/setup-dataset-scratch-env.sh
+
+download-dataset: setup-dataset-scratch-env
+	curl -L 'https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1' > ./scratch/datasets/twitter_facebook_tiktok.zip
+	unzip -l ./scratch/datasets/twitter_facebook_tiktok.zip
+
+unzip-dataset:
+	unzip -v ./scratch/datasets/twitter_facebook_tiktok.zip -d ./scratch/datasets/
