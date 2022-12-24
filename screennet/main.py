@@ -166,7 +166,15 @@ def get_pil_image_channels(image_path: str) -> int:
 
 
 def convert_pil_image_to_rgb_channels(image_path: str):
-    if get_pil_image_channels(image_path) == 4:
+    """Convert Pil image to have the appropriate number of color channels
+
+    Args:
+        image_path (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if get_pil_image_channels(image_path) != 4:
         pil_image = Image.open(image_path).convert("RGB")
         return pil_image
     else:
