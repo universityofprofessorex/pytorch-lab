@@ -1,2 +1,2 @@
 machine,device,dataset_name,epochs,batch_size,image_size,num_train_samples,num_test_samples,total_train_time,time_per_epoch,model
-silicontop,mps,twitter_facebook_tiktok,5,32,224,879,218,48.542,9.708,EfficientNet
+silicontop,mps,twitter_facebook_tiktok,10,32,224,879,218,120.736,12.074,EfficientNet

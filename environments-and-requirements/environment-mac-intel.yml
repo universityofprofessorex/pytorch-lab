@@ -79,6 +79,7 @@ dependencies:
       - pynguin
       - memray
       - torch-tb-profiler
-      - label-studio
+      # - label-studio==1.6.0
+      # - semver==3.0.0-dev.4
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

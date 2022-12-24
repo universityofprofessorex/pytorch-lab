@@ -258,13 +258,9 @@ def predict_from_file(
     image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
     ic(image_path_api)
 
-    # get_pil_image_channels(path_to_image_from_cli)
-
     paths = []
     paths.append(image_path_api)
-    # image_class = paths[0].parent.stem
-    # 4. Open image
-    # img = Image.open(paths[0])
+
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
     pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
@@ -688,7 +684,7 @@ def run_train(
     )
 
     # 10. Save the model to file so we can get back the best model
-    save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+    save_filepath = f"ScreenNet_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
     utils.save_model(model=model, target_dir="models", model_name=save_filepath)
     print("-" * 50 + "\n")
 
@@ -778,6 +774,9 @@ def write_predict_results_to_csv(
     # Create results dict
     pred_df = pd.DataFrame(pred_dicts)
     pred_df.drop(columns=['class_name','correct'],inplace=True)
+
+    if args.worst_first:
+        pred_df.sort_values(by='pred_prob', ascending=False)
 
     # if file does not exist write header
     if not os.path.isfile(args.results):
@@ -1109,7 +1108,7 @@ parser.add_argument(
     default="",
     type=str,
     metavar="WEIGHTS_PATH",
-    help="pLoad saved weights (default: ''",
+    help="Load saved weights (default: ''",
 )
 parser.add_argument(
     "-e",
@@ -1170,6 +1169,12 @@ parser.add_argument(
     dest="summary",
     action="store_true",
     help="Get model summary output",
+)
+parser.add_argument(
+    "--worst-first",
+    dest="worst_first",
+    action="store_true",
+    help="Sort CSV file by worst perdictions first",
 )
 parser.add_argument(
     "--world-size",
