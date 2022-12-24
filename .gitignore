@@ -132,3 +132,4 @@ raw_dataset
 environment.yml
 screennet/runs
 scratch
+.envrc

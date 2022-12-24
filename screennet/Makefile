@@ -1,5 +1,5 @@
 train:
-	python main.py --to-disk --debug --interactive
+	python main.py --to-disk --debug --interactive --epochs 10
 
 pylint:
 	pylint --enable F,E --rcfile ../lint-configs-python/python/pylintrc main.py
@@ -44,3 +44,6 @@ predict:
 
 label-studio:
 	label-studio
+
+worst-first:
+	python main.py --to-disk --debug --predict ~/dev/bossjones/pytorch-lab/scratch/datasets/twitter_facebook_tiktok/test --weights ./models/ScreenNet_efficientnet_b0_basic_10_epochs.pth --worst-first --results ./worst-first.csv

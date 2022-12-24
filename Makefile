@@ -52,3 +52,4 @@ install-postgres:
 
 label-studio:
 	label-studio
+
