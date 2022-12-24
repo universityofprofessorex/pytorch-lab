@@ -148,6 +148,14 @@ def _get_cache_path(filepath):
 
 
 def get_pil_image_channels(image_path: str) -> int:
+    """Open an image and get the number of channels it has.
+
+    Args:
+        image_path (str): _description_
+
+    Returns:
+        int: _description_
+    """
     # load pillow image
     pil_img = Image.open(image_path)
 

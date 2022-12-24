@@ -69,12 +69,16 @@ dependencies:
   #     - pdbr
       - pytype
       - pyannotate
-      - prospector[with_vulture,with_mypy,with_bandit]
+      # - prospector
+      # - vulture
+      - mypy
+      # - bandit
       - py-spy
       - watermark
       - pyfiglet
       - pynguin
       - memray
       - torch-tb-profiler
+      - label-studio
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

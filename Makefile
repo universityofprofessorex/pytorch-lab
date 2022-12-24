@@ -46,3 +46,9 @@ unzip-dataset:
 zip-dataset:
 	bash contrib/zip-dataset.sh
 	ls -ltah ./scratch/datasets/twitter_facebook_tiktok.zip
+
+install-postgres:
+	brew install postgresql@14
+
+label-studio:
+	label-studio
