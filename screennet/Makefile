@@ -1,5 +1,5 @@
 train:
-	python -i main.py
+	python main.py --to-disk --debug --interactive --epochs 10
 
 pylint:
 	pylint --enable F,E --rcfile ../lint-configs-python/python/pylintrc main.py
@@ -41,3 +41,12 @@ tensorboard:
 
 predict:
 	python main.py --predict "~/Downloads/2020-11-25_10-47-32_867.jpeg" --weights ./models/ScreenNetV1.pth --interactive --to-disk
+
+bad-predict:
+	python main.py --predict ../bad_image_test.jpg --weights ./models/ScreenNet_efficientnet_b0_basic_10_epochs.pth --interactive --to-disk
+
+label-studio:
+	label-studio
+
+worst-first:
+	python main.py --to-disk --debug --predict ~/dev/bossjones/pytorch-lab/scratch/datasets/twitter_facebook_tiktok/test --weights ./models/ScreenNet_efficientnet_b0_basic_10_epochs.pth --worst-first --results ./worst-first.csv

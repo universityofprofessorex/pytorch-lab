@@ -131,3 +131,5 @@ raw_dataset
 .vscode
 environment.yml
 screennet/runs
+scratch
+.envrc

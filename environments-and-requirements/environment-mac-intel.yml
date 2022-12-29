@@ -7,22 +7,22 @@ channels:
 dependencies:
   - python=3.10
   - pip>=22.2
-  - pytorch=1.13.1
-  - pytorch-lightning=1.7
-  - torchvision
+  - pytorch
+  # - pytorch-lightning=1.7
   - torchmetrics
-  - torch-fidelity=0.3
+  - torch-fidelity
   - torchtext
   - torchvision
   - fastai=2.7.10
+  # - nomkl
 
-  # I suggest to keep the other deps sorted for convenience.
-  # To determine what the latest versions should be, run:
-  #
-  # ```shell
-  # sed -E 's/invokeai/invokeai-updated/;20,99s/- ([^=]+)==.+/- \1/' environment-mac.yml > environment-mac-updated.yml
-  # CONDA_SUBDIR=osx-arm64 conda env create -f environment-mac-updated.yml && conda list -n invokeai-updated | awk ' {print "  - " $1 "==" $2;} '
-  # ```
+  # # I suggest to keep the other deps sorted for convenience.
+  # # To determine what the latest versions should be, run:
+  # #
+  # # ```shell
+  # # sed -E 's/invokeai/invokeai-updated/;20,99s/- ([^=]+)==.+/- \1/' environment-mac.yml > environment-mac-updated.yml
+  # # CONDA_SUBDIR=osx-arm64 conda env create -f environment-mac-updated.yml && conda list -n invokeai-updated | awk ' {print "  - " $1 "==" $2;} '
+  # # ```
 
   - coloredlogs=15.0
   - eventlet
@@ -32,7 +32,7 @@ dependencies:
   - imgaug=0.4
   - numpy=1.23
   - openh264=2.3
-  - pudb=2019.2
+  # - pudb=2019.2
   - py-opencv=4.6
   - scipy=1.9
   - tensorboard=2.11.0
@@ -40,6 +40,7 @@ dependencies:
   - matplotlib=3.6.2
   - scikit-image
   - scikit-learn
+  # - tensorflow=2.10
   - pip:
       - tqdm
       - better_exceptions
@@ -65,19 +66,20 @@ dependencies:
       - git+https://github.com/openai/CLIP.git@main#egg=clip
       - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
       - viztracer
-      - pdbr
+  #     - pdbr
       - pytype
       - pyannotate
-      - prospector
-      - vulture
+      # - prospector
+      # - vulture
       - mypy
-      - bandit
+      # - bandit
       - py-spy
       - watermark
       - pyfiglet
       - pynguin
       - memray
       - torch-tb-profiler
-      # - label-studio
+      # - label-studio==1.6.0
+      # - semver==3.0.0-dev.4
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

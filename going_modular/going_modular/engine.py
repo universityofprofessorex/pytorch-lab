@@ -10,6 +10,7 @@ from icecream import ic
 import pyfiglet
 from rich import print
 from torch.utils.tensorboard import SummaryWriter
+import torchvision
 
 def display_ascii_text(txt: str, font: str = "stop"):
     title = pyfiglet.figlet_format(txt, font=font)
@@ -202,19 +203,33 @@ def train(
     ic(
         f"[INFO] Training model {model.__class__.__name__} on device '{device}' for {epochs} epochs..."
     )
-    ic(model)
-    ic(train_dataloader)
-    ic(test_dataloader)
-    ic(optimizer)
-    ic(loss_fn)
-    ic(epochs)
-    ic(device)
+    # ic(model)
+    # ic(train_dataloader)
+    # ic(test_dataloader)
+    # ic(optimizer)
+    # ic(loss_fn)
+    # ic(epochs)
+    # ic(device)
 
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
 
     # Make sure model on target device
     model.to(device)
+
+    # ############## TENSORBOARD ########################
+    # if writer:
+    #     images_test_dataloader, labels_test_data_loader = next(iter(test_dataloader))
+    #     # example_data, example_targets = examples.next()
+    #     grid = torchvision.utils.make_grid(images_test_dataloader)
+    #     writer.add_image('twitter_facebook_tiktok_images', grid, 0)
+    #     # writer.add_graph(model, images_test_dataloader)
+    # ###################################################
+
+    # ############## TENSORBOARD ########################
+    # if writer:
+    #     writer.add_graph(model)
+    # ###################################################
 
 
     # Loop through training and testing steps for a number of epochs

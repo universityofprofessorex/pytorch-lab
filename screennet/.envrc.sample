@@ -1,0 +1,1 @@
+export BETTER_EXCEPTIONS=1

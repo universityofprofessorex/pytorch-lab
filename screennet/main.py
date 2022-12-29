@@ -134,8 +134,28 @@ import fastai
 from fastai.data.transforms import get_image_files
 import torchvision.transforms.functional as pytorch_transforms_functional
 
+# SOURCE: https://github.com/pytorch/pytorch/issues/78924
+torch.set_num_threads(1)
+
+# SOURCE: https://github.com/pytorch/vision/blob/main/references/classification/train.py
+def _get_cache_path(filepath):
+    import hashlib
+
+    h = hashlib.sha1(filepath.encode()).hexdigest()
+    cache_path = os.path.join("~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt")
+    cache_path = os.path.expanduser(cache_path)
+    return cache_path
+
 
 def get_pil_image_channels(image_path: str) -> int:
+    """Open an image and get the number of channels it has.
+
+    Args:
+        image_path (str): _description_
+
+    Returns:
+        int: _description_
+    """
     # load pillow image
     pil_img = Image.open(image_path)
 
@@ -146,7 +166,15 @@ def get_pil_image_channels(image_path: str) -> int:
 
 
 def convert_pil_image_to_rgb_channels(image_path: str):
-    if get_pil_image_channels(image_path) == 4:
+    """Convert Pil image to have the appropriate number of color channels
+
+    Args:
+        image_path (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if get_pil_image_channels(image_path) != 4:
         pil_image = Image.open(image_path).convert("RGB")
         return pil_image
     else:
@@ -238,13 +266,9 @@ def predict_from_file(
     image_path_api = pathlib.Path(path_to_image_from_cli).resolve()
     ic(image_path_api)
 
-    # get_pil_image_channels(path_to_image_from_cli)
-
     paths = []
     paths.append(image_path_api)
-    # image_class = paths[0].parent.stem
-    # 4. Open image
-    # img = Image.open(paths[0])
+
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
     pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
@@ -268,7 +292,7 @@ def predict_from_file(
     pred_df = pd.DataFrame(pred_dicts)
     console_print_table(pred_df)
 
-    plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    plot_fname = f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
 
     from_pil_image_to_plt_display(
         img,
@@ -668,7 +692,7 @@ def run_train(
     )
 
     # 10. Save the model to file so we can get back the best model
-    save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+    save_filepath = f"ScreenNet_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
     utils.save_model(model=model, target_dir="models", model_name=save_filepath)
     print("-" * 50 + "\n")
 
@@ -817,6 +841,11 @@ def console_print_table(results_df: pd.DataFrame):
     table.box = box.SIMPLE_HEAD
 
     console.print(table)
+
+def csv_to_df(path: str):
+    return pd.read_csv(path)
+
+
 
 
 def inspect_csv_results():
@@ -1089,7 +1118,7 @@ parser.add_argument(
     default="",
     type=str,
     metavar="WEIGHTS_PATH",
-    help="pLoad saved weights (default: ''",
+    help="Load saved weights (default: ''",
 )
 parser.add_argument(
     "-e",
@@ -1150,6 +1179,12 @@ parser.add_argument(
     dest="summary",
     action="store_true",
     help="Get model summary output",
+)
+parser.add_argument(
+    "--worst-first",
+    dest="worst_first",
+    action="store_true",
+    help="Sort CSV file by worst perdictions first",
 )
 parser.add_argument(
     "--world-size",
@@ -1528,6 +1563,21 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 device,
                 args,
             )
+
+
+        if args.worst_first:
+            ic(f"Writing worst first | {args.results}")
+            results_path = fix_path(args.results)
+            results_path_api = pathlib.Path(results_path)
+
+            # read csv from disk and write it back
+            worst_df = csv_to_df(results_path_api)
+            worst_df.sort_values(by=['pred_prob'], ascending=True, inplace=True)
+            # Write the DataFrame to a CSV file, overwriting any existing file
+            worst_df.to_csv(results_path_api, mode='w', index=False)
+
+            if args.debug:
+                console_print_table(worst_df)
 
         return
 
