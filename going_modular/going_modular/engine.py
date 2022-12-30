@@ -11,6 +11,8 @@ import pyfiglet
 from rich import print
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
+import numpy as np
+
 
 def display_ascii_text(txt: str, font: str = "stop"):
     title = pyfiglet.figlet_format(txt, font=font)
@@ -52,16 +54,19 @@ def train_step(
 
     with torch.profiler.profile(
         activities=[
-        torch.profiler.ProfilerActivity.CPU,
-        torch.profiler.ProfilerActivity.CUDA],
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
         schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/profiler", worker_name='worker0'),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            "./runs/profiler", worker_name="worker0"
+        ),
         # save information about operator's input shapes.
         record_shapes=True,
         #  track tensor memory allocation/deallocation.
         profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
         # record source information (file and line number) for the ops.
-        with_stack=True
+        with_stack=True,
     ) as prof:
         # Loop through data loader data batches
         for batch, (X, y) in enumerate(dataloader):
@@ -231,7 +236,6 @@ def train(
     #     writer.add_graph(model)
     # ###################################################
 
-
     # Loop through training and testing steps for a number of epochs
     for epoch in tqdm(range(epochs)):
         print(
@@ -287,6 +291,98 @@ def train(
             pass
     ### End new ###
 
-
     # Return the filled results at the end of the epochs
     return results
+
+
+def train_localization_fn(
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+):
+
+    total_loss = 0.0
+
+    # Put model in train mode
+    model.train()  # Dropout On
+
+    for data in tqdm(dataloader):
+
+        images, gt_bboxes = data
+        images, gt_bboxes = images.to(device), gt_bboxes.to(device)
+
+        bboxes, loss = model(images, gt_bboxes)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    return total_loss / len(dataloader)
+
+
+def eval_localization_fn(
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    device: torch.device,
+):
+
+    total_loss = 0.0
+
+    # Put model in eval mode
+    model.eval()
+
+    with torch.no_grad():
+        for data in tqdm(dataloader):
+
+            images, gt_bboxes = data
+            images, gt_bboxes = images.to(device, non_blocking=True), gt_bboxes.to(
+                device, non_blocking=True
+            )
+
+            bboxes, loss = model(images, gt_bboxes)
+
+            total_loss += loss.item()
+
+    return total_loss / len(dataloader)
+
+
+def train_localization(
+    model: torch.nn.Module,
+    trainloader: torch.utils.data.DataLoader,
+    validloader: torch.utils.data.DataLoader,
+    optimizer: torch.optim.Optimizer,
+    # loss_fn: torch.nn.Module,
+    epochs: int,
+    device: torch.device,
+    # writer: SummaryWriter,
+):
+
+    best_valid_loss = np.Inf
+
+    ic(
+        f"[INFO] Training model {model.__class__.__name__} on device '{device}' for {epochs} epochs..."
+    )
+
+    # Make sure model on target device
+    model.to(device)
+
+    for i in tqdm(range(epochs)):
+
+        print(
+            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={i}..."
+        )
+        train_loss = train_localization_fn(model, trainloader, optimizer, device)
+        print(
+            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={i}..."
+        )
+        valid_loss = eval_localization_fn(model, validloader, device)
+
+        if valid_loss < best_valid_loss:
+            torch.save(model.state_dict(), "screencropnet_best_model.pt")
+            print("WEIGHTS-ARE-SAVED")
+            best_valid_loss = valid_loss
+
+        print(f"Epoch : {i + 1} train loss : {train_loss} valid loss : {valid_loss}")

@@ -2,6 +2,7 @@ import torchvision.models as models
 import torch.nn as nn
 import devices
 import argparse
+import timm
 
 MODEL_NAMES = sorted(
     name
@@ -14,15 +15,15 @@ class ObjLocModel(nn.Module):
     def __init__(self, args: argparse.Namespace):
         super(ObjLocModel, self).__init__()
 
-        device = devices.get_optimal_device(args)
+        # device = devices.get_optimal_device(args)
 
-        weights = models.__dict__[args.model_weights].DEFAULT
-        auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch](weights=weights).to(device)
-        model.name = args.arch
+        # weights = models.__dict__[args.model_weights].DEFAULT
+        # auto_transforms = weights.transforms()
+        # model = models.__dict__[args.arch](weights=weights).to(device)
+        # model.name = args.arch
 
-        # self.backbone = timm.create_model(MODEL_NAME, pretrained=True, num_classes=4)
-        self.backbone = model
+        self.backbone = timm.create_model(args.arch, pretrained=True, num_classes=4)
+        # self.backbone = model
 
     def forward(self, images, gt_bboxes=None):
         bboxes_logits = self.backbone(images)  ## predicted bounding boxes

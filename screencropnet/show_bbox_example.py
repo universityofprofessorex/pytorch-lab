@@ -74,8 +74,8 @@ def df_to_table(
 # -------------------------------------------------------
 
 
-CSV_FILE = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv'
-DATA_DIR = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/'
+CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
+DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
 
 BATCH_SIZE = 16
 IMG_SIZE = 140
@@ -88,7 +88,7 @@ NUM_COR = 4
 
 # plt.ion()
 
-df = pd.read_csv(CSV_FILE)
+df_dataset = pd.read_csv(CSV_FILE)
 
 # table = Table(
 #     show_header=True,
@@ -101,7 +101,7 @@ df = pd.read_csv(CSV_FILE)
 # )
 
 # # Modify the table instance to have the data from the DataFrame
-# table = df_to_table(df, table)
+# table = df_to_table(df_dataset, table)
 
 # # Update the style of the table
 # table.row_styles = ["none", "dim"]
@@ -110,7 +110,7 @@ df = pd.read_csv(CSV_FILE)
 # console.print(table)
 
 try:
-    row = df.iloc[184]
+    row = df_dataset.iloc[184]
     print(row)
     img_full_path: str = DATA_DIR + row.img_path
     ic(img_full_path)
@@ -132,15 +132,15 @@ try:
     plt.show()
 except Exception as ex:
 
-        print(str(ex))
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        tb = traceback.TracebackException(exc_type, exc_value, exc_traceback)
-        traceback_str = "".join(tb.format_exception_only())
-        print("Error Class: {}".format(str(ex.__class__)))
+    print(str(ex))
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    tb = traceback.TracebackException(exc_type, exc_value, exc_traceback)
+    traceback_str = "".join(tb.format_exception_only())
+    print("Error Class: {}".format(str(ex.__class__)))
 
-        output = "[{}] {}: {}".format("UNEXPECTED", type(ex).__name__, ex)
-        print(output)
-        print("exc_type: {}".format(exc_type))
-        print("exc_value: {}".format(exc_value))
-        traceback.print_tb(exc_traceback)
-        bpdb.pm()
+    output = "[{}] {}: {}".format("UNEXPECTED", type(ex).__name__, ex)
+    print(output)
+    print("exc_type: {}".format(exc_type))
+    print("exc_value: {}".format(exc_value))
+    traceback.print_tb(exc_traceback)
+    bpdb.pm()

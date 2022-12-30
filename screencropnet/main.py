@@ -145,9 +145,12 @@ from tqdm.notebook import tqdm
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from data_set import ObjLocDataset
+import albumentations as A
+from arch import ObjLocModel
 
-CSV_FILE = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv'
-DATA_DIR = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/'
+CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
+DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
 
 BATCH_SIZE = 16
 IMG_SIZE = 140
@@ -159,12 +162,11 @@ EPOCHS = 40
 NUM_COR = 4
 
 
-
 # SOURCE: https://github.com/pytorch/pytorch/issues/78924
 torch.set_num_threads(1)
 
 MODEL_NAME = "ScreenCropNetV1"
-DATASET_FOLDER_NAME = "screen_crop_net_dataset"
+DATASET_FOLDER_NAME = "twitter_screenshots_localization_dataset"
 CONFIG_IMAGE_SIZE = (224, 224)
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
@@ -683,7 +685,7 @@ def run_train(
     model: torch.nn.Module,
     train_dataloader: torch.utils.data.DataLoader,
     test_dataloader: torch.utils.data.DataLoader,
-    loss_fn: torch.nn.Module,
+    # loss_fn: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     epochs: int,
     device: torch.device,
@@ -693,7 +695,7 @@ def run_train(
     # ic(model)
     ic(train_dataloader)
     ic(test_dataloader)
-    ic(loss_fn)
+    # ic(loss_fn)
     ic(optimizer)
     ic(epochs)
     ic(device)
@@ -704,19 +706,19 @@ def run_train(
     ic(dataloader_name)
 
     # Setup training and save the results
-    results = engine.train(
+    results = engine.train_localization(
         model=model,
         train_dataloader=train_dataloader,
         test_dataloader=test_dataloader,
         optimizer=optimizer,
-        loss_fn=loss_fn,
+        # loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        writer=create_writer(
-            experiment_name=dataloader_name,
-            model_name=model.name,
-            extra=f"{epochs}_epochs",
-        ),
+        # writer=create_writer(
+        #     experiment_name=dataloader_name,
+        #     model_name=model.name,
+        #     extra=f"{epochs}_epochs",
+        # ),
     )
 
     # End the timer and print out how long it took
@@ -930,16 +932,6 @@ def clean_dirs_in_dir(image_path):
 
 def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath):
 
-    # Setup path to data folder
-    # data_path = Path("data/")
-    # image_path = data_path / "twitter_facebook_tiktok"
-
-    # NOTE: Use this if you need to delete folders again
-    # clean_dir_images(image_path)
-    # clean_dirs_in_dir(image_path)
-    # os.rmdir(image_path)
-    # os.unlink("data/twitter_facebook_tiktok.zip")
-
     # If the image folder doesn't exist, download it and prepare it...
     if image_path.is_dir():
         print(f"{image_path} directory exists.")
@@ -948,15 +940,19 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
         image_path.mkdir(parents=True, exist_ok=True)
 
         # Download twitter, facebook, tiktok data
-        with open(data_path / "twitter_facebook_tiktok.zip", "wb") as f:
+        with open(
+            data_path / "twitter_screenshots_localization_dataset.zip", "wb"
+        ) as f:
             request = requests.get(
-                "https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1"
+                "https://www.dropbox.com/s/w5rzn8b1s0p9d2n/twitter_screenshots_localization_dataset.zip?dl=1"
             )
-            print("Downloading twitter, facebook, tiktok data...")
+            print("Downloading twitter localization data data...")
             f.write(request.content)
 
         # Unzip twitter, facebook, tiktok data
-        with zipfile.ZipFile(data_path / "twitter_facebook_tiktok.zip", "r") as zip_ref:
+        with zipfile.ZipFile(
+            data_path / "twitter_screenshots_localization_dataset.zip", "r"
+        ) as zip_ref:
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
@@ -1038,6 +1034,14 @@ model_names = sorted(
 shared_datasets_path_api = pathlib.Path(os.path.expanduser("~/Downloads/datasets"))
 shared_datasets_path = os.path.abspath(str(shared_datasets_path_api))
 DEFAULT_DATASET_DIR = Path(f"{shared_datasets_path}")
+
+
+CSV_FILE_PATH_API = pathlib.Path(
+    os.path.expanduser(f"~/Downloads/datasets/{DATASET_FOLDER_NAME}")
+)
+CSV_FILE_PATH = os.path.abspath(str(CSV_FILE_PATH_API))
+CSV_FILE = f"{CSV_FILE_PATH}/labels_pascal_temp.csv"
+IMAGE_DATASET_DIR_PATH = f"{CSV_FILE_PATH}/train_images"
 
 # --------------------------------------------------------------------------------------------
 
@@ -1312,11 +1316,10 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         model.name = args.arch
     else:
         ic("=> creating model '{}'".format(args.arch))
-        # breakpoint()
-        # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
-        # auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch]()
+        device = devices.get_optimal_device(args)
+        model = ObjLocModel(args)
         model.name = args.arch
+        model.to(device)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         ic("using CPU, this will be slow")
@@ -1383,32 +1386,76 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         )
     else:
 
-        # Setup path to data folder
-        data_path = Path(args.data)
-        image_path = data_path / "twitter_facebook_tiktok"
-        train_dir = image_path / "train"
-        test_dir = image_path / "test"
+        df_dataset = pd.read_csv(CSV_FILE)
 
-        train_dataloader: torch.utils.data.DataLoader
-        test_dataloader: torch.utils.data.DataLoader
-        class_names: List[str]
-
-        train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
-            train_dir=train_dir,
-            test_dir=test_dir,
-            transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
-            batch_size=args.batch_size,
-            pin_memory=True,
-        )  # set mini-batch size to 32
-
-        # get datasets for confusion matrix
-        # Use ImageFolder to create dataset(s)
-        train_dataset = train_data = datasets.ImageFolder(
-            train_dir, transform=auto_transforms
+        train_df, valid_df = train_test_split(
+            df_dataset, test_size=0.20, random_state=42
         )
-        val_dataset = test_data = datasets.ImageFolder(
-            test_dir, transform=auto_transforms
+
+        # # Setup path to data folder
+        # data_path = Path(args.data)
+        # image_path = data_path / "twitter_screenshots_localization_dataset"
+        # train_dir = image_path / "train_images"
+        # test_dir = image_path / "test"
+
+        # train_dataloader: torch.utils.data.DataLoader
+        # test_dataloader: torch.utils.data.DataLoader
+        # class_names: List[str]
+
+        # train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
+        #     train_dir=train_dir,
+        #     test_dir=test_dir,
+        #     transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
+        #     batch_size=args.batch_size,
+        #     pin_memory=True,
+        # )  # set mini-batch size to 32
+
+        # # get datasets for confusion matrix
+        # # Use ImageFolder to create dataset(s)
+        # train_dataset = train_data = datasets.ImageFolder(
+        #     train_dir, transform=auto_transforms
+        # )
+        # val_dataset = test_data = datasets.ImageFolder(
+        #     test_dir, transform=auto_transforms
+        # )
+
+        train_augs = A.Compose(
+            [
+                A.Resize(IMG_SIZE, IMG_SIZE),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.Rotate(),
+            ],
+            bbox_params=A.BboxParams(
+                format="pascal_voc", label_fields=["class_labels"]
+            ),
         )
+
+        valid_augs = A.Compose(
+            [A.Resize(IMG_SIZE, IMG_SIZE)],
+            bbox_params=A.BboxParams(
+                format="pascal_voc", label_fields=["class_labels"]
+            ),
+        )
+
+        trainset: ObjLocDataset = ObjLocDataset(train_df, transform=train_augs, root_dir=f"{DATA_DIR}")
+        validset: ObjLocDataset = ObjLocDataset(valid_df, transform=valid_augs, root_dir=f"{DATA_DIR}")
+
+        print(
+            f"Total examples in the trainset: {len(trainset)} validset: {len(validset)}"
+        )
+
+        trainloader = torch.utils.data.dataloader.DataLoader(trainset, batch_size = BATCH_SIZE, shuffle=True)
+        validloader = torch.utils.data.dataloader.DataLoader(trainset, batch_size = BATCH_SIZE, shuffle=False)
+
+        print("Total no. batches in trainloader : {}".format(len(trainloader)))
+        print("Total no. batches in validloader : {}".format(len(validloader)))
+
+        for images, bboxes in trainloader:
+            break;
+
+        print("Shape of one batch images : {}".format(images.shape))
+        print("Shape of one batch bboxes : {}".format(bboxes.shape))
 
     # -----------------------------
     # BOSSNEW
@@ -1422,23 +1469,23 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     #         row_settings=["var_names"]
     # )
 
-    # BOSSNEW
-    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    for param in model.features.parameters():
-        param.requires_grad = False
+    # # BOSSNEW
+    # # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
+    # for param in model.features.parameters():
+    #     param.requires_grad = False
 
-    # Get the length of class_names (one output unit for each class)
-    output_shape = len(class_names)
+    # # Get the length of class_names (one output unit for each class)
+    # output_shape = len(class_names)
 
-    # Recreate the classifier layer and seed it to the target device
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=0.2, inplace=True),
-        torch.nn.Linear(
-            in_features=1280,
-            out_features=output_shape,  # same number of output units as our number of classes
-            bias=True,
-        ),
-    ).to(device)
+    # # Recreate the classifier layer and seed it to the target device
+    # model.classifier = torch.nn.Sequential(
+    #     torch.nn.Dropout(p=0.2, inplace=True),
+    #     torch.nn.Linear(
+    #         in_features=1280,
+    #         out_features=output_shape,  # same number of output units as our number of classes
+    #         bias=True,
+    #     ),
+    # ).to(device)
 
     ic(next(model.parameters()).device)
 
@@ -1456,7 +1503,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     # Define loss and optimizer
     # BOSSNEW
     # loss_fn = nn.CrossEntropyLoss().to(device)
-    loss_fn = nn.CrossEntropyLoss()
+    # loss_fn = nn.CrossEntropyLoss()
+
+    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -1467,12 +1516,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    if args.weights:
-        ic(f"loading weights from -> {args.weights}")
-        # loaded_model: nn.Module
-        model = run_get_model_for_inference(
-            model, device, class_names, args.weights, args
-        )
+    # if args.weights:
+    #     ic(f"loading weights from -> {args.weights}")
+    #     # loaded_model: nn.Module
+    #     model = run_get_model_for_inference(
+    #         model, device, class_names, args.weights, args
+    #     )
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -1510,7 +1559,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         val_sampler = None
 
     if args.info:
-        info(args, dataset_root_dir=image_path)
+        info(args, dataset_root_dir=IMAGE_DATASET_DIR_PATH)
         return
 
     if args.summary:
@@ -1533,81 +1582,81 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
         return
 
-    if args.evaluate:
-        # validate(val_loader, model, criterion, args)
-        ic(run_validate(model, test_dataloader, device, loss_fn))
-        return
+    # if args.evaluate:
+    #     # validate(val_loader, model, criterion, args)
+    #     ic(run_validate(model, test_dataloader, device, loss_fn))
+    #     return
 
-    if args.download_and_predict:
-        print(" Running download and predict command ...")
-        download_and_predict(
-            args.download_and_predict,
-            model,
-            Path(args.data),
-            class_names=class_names,
-            device=device,
-        )
-        return
+    # if args.download_and_predict:
+    #     print(" Running download and predict command ...")
+    #     download_and_predict(
+    #         args.download_and_predict,
+    #         model,
+    #         Path(args.data),
+    #         class_names=class_names,
+    #         device=device,
+    #     )
+    #     return
 
-    if args.predict:
-        print(" Running predict command ...")
-        # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
-        path_to_image_from_cli = fix_path(args.predict)
+    # if args.predict:
+    #     print(" Running predict command ...")
+    #     # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
+    #     path_to_image_from_cli = fix_path(args.predict)
 
-        if is_file(path_to_image_from_cli):
-            predict_from_file(
-                path_to_image_from_cli,
-                model,
-                auto_transforms,
-                class_names,
-                device,
-                args,
-            )
+    #     if is_file(path_to_image_from_cli):
+    #         predict_from_file(
+    #             path_to_image_from_cli,
+    #             model,
+    #             auto_transforms,
+    #             class_names,
+    #             device,
+    #             args,
+    #         )
 
-        if is_directory(path_to_image_from_cli):
-            predict_from_dir(
-                path_to_image_from_cli,
-                model,
-                auto_transforms,
-                class_names,
-                device,
-                args,
-            )
+    #     if is_directory(path_to_image_from_cli):
+    #         predict_from_dir(
+    #             path_to_image_from_cli,
+    #             model,
+    #             auto_transforms,
+    #             class_names,
+    #             device,
+    #             args,
+    #         )
 
-        if args.worst_first:
-            ic(f"Writing worst first | {args.results}")
-            results_path = fix_path(args.results)
-            results_path_api = pathlib.Path(results_path)
+    #     if args.worst_first:
+    #         ic(f"Writing worst first | {args.results}")
+    #         results_path = fix_path(args.results)
+    #         results_path_api = pathlib.Path(results_path)
 
-            # read csv from disk and write it back
-            worst_df = csv_to_df(results_path_api)
-            worst_df.sort_values(by=["pred_prob"], ascending=True, inplace=True)
-            # Write the DataFrame to a CSV file, overwriting any existing file
-            worst_df.to_csv(results_path_api, mode="w", index=False)
+    #         # read csv from disk and write it back
+    #         worst_df = csv_to_df(results_path_api)
+    #         worst_df.sort_values(by=["pred_prob"], ascending=True, inplace=True)
+    #         # Write the DataFrame to a CSV file, overwriting any existing file
+    #         worst_df.to_csv(results_path_api, mode="w", index=False)
 
-            if args.debug:
-                console_print_table(worst_df)
+    #         if args.debug:
+    #             console_print_table(worst_df)
 
-        return
+    #     return
 
-    if args.test:
-        print(" Running test command ...")
-        test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-        pred_dicts = pred_and_store(
-            test_data_paths, model, auto_transforms, class_names, device
-        )
-        pred_df = pd.DataFrame(pred_dicts)
-        # breakpoint()
-        # pred_df.head()
-        console_print_table(pred_df)
-        return
+    # if args.test:
+    #     print(" Running test command ...")
+    #     test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
+    #     pred_dicts = pred_and_store(
+    #         test_data_paths, model, auto_transforms, class_names, device
+    #     )
+    #     pred_df = pd.DataFrame(pred_dicts)
+    #     # breakpoint()
+    #     # pred_df.head()
+    #     console_print_table(pred_df)
+    #     return
 
     ic(
         run_train(
             model,
-            train_dataloader,
-            test_dataloader,
-            loss_fn,
+            trainloader,
+            validloader,
+            # loss_fn,
             optimizer,
             args.epochs,
             device,
@@ -1616,53 +1665,56 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     )
     print("No other options selected so we are training this model....")
 
-    path_to_model = save_model_to_disk("ScreenNetV1", model)
+    path_to_model = save_model_to_disk(f"{MODEL_NAME}", model)
 
     loaded_model_for_inference: nn.Module
     loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names, path_to_model, args
+        model, device, path_to_model, args
     )
 
-    ic("lets make a 3 predictions on some random images")
+    ic("lets make 3 predictions on some random images")
     get_random_perdictions_and_plots(
         loaded_model_for_inference,
-        test_dir=test_dir,
-        class_names=class_names,
-        transform=auto_transforms,
+        validset,
         device=device,
-    )
-
-    cmat = compute_confusion_matrix(model, test_dataloader, device)
-    show_confusion_matrix_helper(
-        cmat, class_names, to_disk=True, fname="confusion-matrix.png"
     )
 
 
 def get_random_perdictions_and_plots(
     best_model: nn.Module,
-    test_dir: pathlib.PosixPath = "",
-    class_names: List[str] = None,
-    transform: torchvision.transforms = None,
+    validset: ObjLocDataset,
     device: torch.device = None,
 ):
-    num_images_to_plot = 3
-    test_image_path_list = list(
-        Path(test_dir).glob("*/*.jpg")
-    )  # get all test image paths from 20% dataset
-    test_image_path_sample = random.sample(
-        population=test_image_path_list, k=num_images_to_plot
-    )  # randomly select k number of images
 
-    # Iterate through random test image paths, make predictions on them and plot them
-    for image_path in test_image_path_sample:
-        pred_and_plot_image(
-            model=best_model,
-            image_path=image_path,
-            class_names=class_names,
-            image_size=(224, 224),
-            transform=transform,
-            device=device,
-        )
+    import random
+    rand_idx = random.randint(0,(len(validset)-1))
+    ic(rand_idx)
+    with torch.no_grad():
+        image, gt_bbox = validset[rand_idx] # (c, h, w)
+        image = image.unsqueeze(0).to(device) # (bs, c, h, w)
+        out_bbox = best_model(image)
+
+        compare_plots(image, gt_bbox, out_bbox)
+
+
+    # num_images_to_plot = 3
+    # test_image_path_list = list(
+    #     Path(test_dir).glob("*/*.jpg")
+    # )  # get all test image paths from 20% dataset
+    # test_image_path_sample = random.sample(
+    #     population=test_image_path_list, k=num_images_to_plot
+    # )  # randomly select k number of images
+
+    # # Iterate through random test image paths, make predictions on them and plot them
+    # for image_path in test_image_path_sample:
+    #     pred_and_plot_image(
+    #         model=best_model,
+    #         image_path=image_path,
+    #         class_names=class_names,
+    #         image_size=(224, 224),
+    #         transform=transform,
+    #         device=device,
+    #     )
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -1955,9 +2007,10 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 def load_model_for_inference(
-    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
+    save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
-    model = create_effnetb0_model(device, class_names, args)
+    # model = create_effnetb0_model(device, class_names, args)
+    model = ObjLocModel()
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))

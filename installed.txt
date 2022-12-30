@@ -329,6 +329,7 @@ terminado==0.17.1
 thinc @ file:///Users/runner/miniforge3/conda-bld/thinc_1671605720963/work
 threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1643647933166/work
 tifffile @ file:///home/conda/feedstock_root/build_artifacts/tifffile_1665588749940/work
+timm @ file:///home/conda/feedstock_root/build_artifacts/timm_1669307383798/work
 tinycss2==1.2.1
 tokenize-rt==5.0.0
 tokenizers @ file:///Users/runner/miniforge3/conda-bld/tokenizers_1666939364172/work/bindings/python
