@@ -142,7 +142,9 @@ def _get_cache_path(filepath):
     import hashlib
 
     h = hashlib.sha1(filepath.encode()).hexdigest()
-    cache_path = os.path.join("~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt")
+    cache_path = os.path.join(
+        "~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt"
+    )
     cache_path = os.path.expanduser(cache_path)
     return cache_path
 
@@ -243,7 +245,6 @@ def predict_from_dir(
         )
 
 
-
 def predict_from_file(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
@@ -292,7 +293,9 @@ def predict_from_file(
     pred_df = pd.DataFrame(pred_dicts)
     console_print_table(pred_df)
 
-    plot_fname = f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    plot_fname = (
+        f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    )
 
     from_pil_image_to_plt_display(
         img,
@@ -776,19 +779,17 @@ def write_training_results_to_csv(
         index=False,
     )
 
-def write_predict_results_to_csv(
-    pred_dicts: List[Dict], args: argparse.Namespace
-):
+
+def write_predict_results_to_csv(pred_dicts: List[Dict], args: argparse.Namespace):
     # Create results dict
     pred_df = pd.DataFrame(pred_dicts)
-    pred_df.drop(columns=['class_name','correct'],inplace=True)
+    pred_df.drop(columns=["class_name", "correct"], inplace=True)
 
     # if file does not exist write header
     if not os.path.isfile(args.results):
-        pred_df.to_csv(args.results, header='column_names')
-    else: # else it exists so append without writing the header
-        pred_df.to_csv(args.results, mode='a', header=False)
-
+        pred_df.to_csv(args.results, header="column_names")
+    else:  # else it exists so append without writing the header
+        pred_df.to_csv(args.results, mode="a", header=False)
 
 
 def df_to_table(
@@ -842,10 +843,9 @@ def console_print_table(results_df: pd.DataFrame):
 
     console.print(table)
 
+
 def csv_to_df(path: str):
     return pd.read_csv(path)
-
-
 
 
 def inspect_csv_results():
@@ -1564,7 +1564,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
                 args,
             )
 
-
         if args.worst_first:
             ic(f"Writing worst first | {args.results}")
             results_path = fix_path(args.results)
@@ -1572,9 +1571,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
             # read csv from disk and write it back
             worst_df = csv_to_df(results_path_api)
-            worst_df.sort_values(by=['pred_prob'], ascending=True, inplace=True)
+            worst_df.sort_values(by=["pred_prob"], ascending=True, inplace=True)
             # Write the DataFrame to a CSV file, overwriting any existing file
-            worst_df.to_csv(results_path_api, mode='w', index=False)
+            worst_df.to_csv(results_path_api, mode="w", index=False)
 
             if args.debug:
                 console_print_table(worst_df)

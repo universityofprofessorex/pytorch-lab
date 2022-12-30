@@ -2020,7 +2020,7 @@ def load_model_for_inference(
     save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
     # model = create_effnetb0_model(device, class_names, args)
-    model = ObjLocModel()
+    model = ObjLocModel(args)
     model.load_state_dict(torch.load(save_path))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
