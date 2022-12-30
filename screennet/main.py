@@ -39,9 +39,9 @@ import rich
 import torch
 import torchvision
 
-from rich.traceback import install
+# from rich.traceback import install
 
-install(show_locals=True)
+# install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
 from rich.console import Console

@@ -41,18 +41,16 @@ import rich
 import torch
 import torchvision
 
-# from rich.traceback import install
-
 # install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
-from rich.console import Console
+# from rich.console import Console
 from rich.table import Table
 from torchvision import datasets, transforms
 
 better_exceptions.hook()
 
-console: Console = Console()
+# console: Console = Console()
 # ---------------------------------------------------------------------------
 
 
@@ -332,7 +330,7 @@ def predict_from_file(
 
     # print prediction info to rich table
     pred_df = pd.DataFrame(pred_dicts)
-    console_print_table(pred_df)
+    # console_print_table(pred_df)
 
     plot_fname = (
         f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
@@ -863,26 +861,26 @@ def df_to_table(
     return rich_table
 
 
-def console_print_table(results_df: pd.DataFrame):
-    # Initiate a Table instance to be modified
-    table = Table(
-        show_header=True,
-        header_style="bold magenta",
-        box=box.DOUBLE,
-        expand=True,
-        show_lines=True,
-        show_edge=True,
-        show_footer=True,
-    )
+# def console_print_table(results_df: pd.DataFrame):
+#     # Initiate a Table instance to be modified
+#     table = Table(
+#         show_header=True,
+#         header_style="bold magenta",
+#         box=box.DOUBLE,
+#         expand=True,
+#         show_lines=True,
+#         show_edge=True,
+#         show_footer=True,
+#     )
 
-    # Modify the table instance to have the data from the DataFrame
-    table = df_to_table(results_df, table)
+#     # Modify the table instance to have the data from the DataFrame
+#     table = df_to_table(results_df, table)
 
-    # Update the style of the table
-    table.row_styles = ["none", "dim"]
-    table.box = box.SIMPLE_HEAD
+#     # Update the style of the table
+#     table.row_styles = ["none", "dim"]
+#     table.box = box.SIMPLE_HEAD
 
-    console.print(table)
+#     console.print(table)
 
 
 def csv_to_df(path: str):
@@ -897,7 +895,7 @@ def inspect_csv_results():
         df_list.append(pd.read_csv(path))
     results_df = pd.concat(df_list).reset_index(drop=True)
 
-    console_print_table(results_df)
+    # console_print_table(results_df)
     return results_df
 
 
@@ -2260,6 +2258,7 @@ def pred_and_store(
 
 if __name__ == "__main__":
     import traceback
+    better_exceptions.hook()
 
     try:
         main()
