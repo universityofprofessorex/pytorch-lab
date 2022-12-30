@@ -5,6 +5,7 @@
 # import pdb
 # pdb = pdb.pdb
 
+import random
 import socket
 import os
 import os.path
@@ -1438,21 +1439,29 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             ),
         )
 
-        trainset: ObjLocDataset = ObjLocDataset(train_df, transform=train_augs, root_dir=f"{DATA_DIR}")
-        validset: ObjLocDataset = ObjLocDataset(valid_df, transform=valid_augs, root_dir=f"{DATA_DIR}")
+        trainset: ObjLocDataset = ObjLocDataset(
+            train_df, transform=train_augs, root_dir=f"{DATA_DIR}"
+        )
+        validset: ObjLocDataset = ObjLocDataset(
+            valid_df, transform=valid_augs, root_dir=f"{DATA_DIR}"
+        )
 
         print(
             f"Total examples in the trainset: {len(trainset)} validset: {len(validset)}"
         )
 
-        trainloader = torch.utils.data.dataloader.DataLoader(trainset, batch_size = BATCH_SIZE, shuffle=True)
-        validloader = torch.utils.data.dataloader.DataLoader(trainset, batch_size = BATCH_SIZE, shuffle=False)
+        trainloader = torch.utils.data.dataloader.DataLoader(
+            trainset, batch_size=BATCH_SIZE, shuffle=True
+        )
+        validloader = torch.utils.data.dataloader.DataLoader(
+            trainset, batch_size=BATCH_SIZE, shuffle=False
+        )
 
         print("Total no. batches in trainloader : {}".format(len(trainloader)))
         print("Total no. batches in validloader : {}".format(len(validloader)))
 
         for images, bboxes in trainloader:
-            break;
+            break
 
         print("Shape of one batch images : {}".format(images.shape))
         print("Shape of one batch bboxes : {}".format(bboxes.shape))
@@ -1686,16 +1695,14 @@ def get_random_perdictions_and_plots(
     device: torch.device = None,
 ):
 
-    import random
-    rand_idx = random.randint(0,(len(validset)-1))
+    rand_idx = random.randint(0, (len(validset) - 1))
     ic(rand_idx)
     with torch.no_grad():
-        image, gt_bbox = validset[rand_idx] # (c, h, w)
-        image = image.unsqueeze(0).to(device) # (bs, c, h, w)
+        image, gt_bbox = validset[rand_idx]  # (c, h, w)
+        image = image.unsqueeze(0).to(device)  # (bs, c, h, w)
         out_bbox = best_model(image)
 
         compare_plots(image, gt_bbox, out_bbox)
-
 
     # num_images_to_plot = 3
     # test_image_path_list = list(
