@@ -684,8 +684,8 @@ def run_validate(
 
 def run_train(
     model: torch.nn.Module,
-    train_dataloader: torch.utils.data.DataLoader,
-    test_dataloader: torch.utils.data.DataLoader,
+    trainloader: torch.utils.data.DataLoader,
+    validloader: torch.utils.data.DataLoader,
     # loss_fn: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     epochs: int,
@@ -694,8 +694,8 @@ def run_train(
 ):
     print("No other options selected so we are training this model....")
     # ic(model)
-    ic(train_dataloader)
-    ic(test_dataloader)
+    ic(trainloader)
+    ic(validloader)
     # ic(loss_fn)
     ic(optimizer)
     ic(epochs)
@@ -709,8 +709,8 @@ def run_train(
     # Setup training and save the results
     results = engine.train_localization(
         model=model,
-        train_dataloader=train_dataloader,
-        test_dataloader=test_dataloader,
+        trainloader=trainloader,
+        validloader=validloader,
         optimizer=optimizer,
         # loss_fn=loss_fn,
         epochs=epochs,
@@ -739,43 +739,46 @@ def run_train(
 
     dataset_name = DATASET_FOLDER_NAME
 
-    write_training_results_to_csv(
-        machine,
-        device,
-        dataset_name=dataset_name,
-        num_epochs=epochs,
-        batch_size=batch_size,
-        image_size=CONFIG_IMAGE_SIZE,
-        train_data=train_dataloader.dataset,
-        test_data=test_dataloader.dataset,
-        total_train_time=total_train_time,
-        model=model,
-    )
+    # write_training_results_to_csv(
+    #     machine,
+    #     device,
+    #     dataset_name=dataset_name,
+    #     num_epochs=epochs,
+    #     batch_size=batch_size,
+    #     image_size=CONFIG_IMAGE_SIZE,
+    #     train_data=trainloader.dataset,
+    #     test_data=validloader.dataset,
+    #     total_train_time=total_train_time,
+    #     model=model,
+    # )
 
-    results_df = inspect_csv_results()
-    ic("Plot performance benchmarks")
-    # Get names of devices
-    machine_and_device_list = [
-        row[1][0] + " (" + row[1][1] + ")"
-        for row in results_df[["machine", "device"]].iterrows()
-    ]
+    # # -------------------------------------------------
+    # # DISABLED
+    # # -------------------------------------------------
+    # results_df = inspect_csv_results()
+    # ic("Plot performance benchmarks")
+    # # Get names of devices
+    # machine_and_device_list = [
+    #     row[1][0] + " (" + row[1][1] + ")"
+    #     for row in results_df[["machine", "device"]].iterrows()
+    # ]
 
-    # Plot and save figure
-    plt.figure(figsize=(10, 7))
-    plt.style.use("fivethirtyeight")
-    plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
-    plt.title(
-        f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {CONFIG_IMAGE_SIZE}",
-        size=16,
-    )
-    plt.xlabel("Machine (device)", size=14)
-    plt.ylabel("Seconds per epoch (lower is better)", size=14)
-    save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{CONFIG_IMAGE_SIZE[0]}.png"
-    print(f"Saving figure to '{save_path}'")
-    plt.savefig(save_path)
+    # # Plot and save figure
+    # plt.figure(figsize=(10, 7))
+    # plt.style.use("fivethirtyeight")
+    # plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
+    # plt.title(
+    #     f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {CONFIG_IMAGE_SIZE}",
+    #     size=16,
+    # )
+    # plt.xlabel("Machine (device)", size=14)
+    # plt.ylabel("Seconds per epoch (lower is better)", size=14)
+    # save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{CONFIG_IMAGE_SIZE[0]}.png"
+    # print(f"Saving figure to '{save_path}'")
+    # plt.savefig(save_path)
 
-    ic("Plot the loss curves of our model")
-    plot_loss_curves(results, to_disk=True)
+    # ic("Plot the loss curves of our model")
+    # plot_loss_curves(results, to_disk=True)
 
 
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
