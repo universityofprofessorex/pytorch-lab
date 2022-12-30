@@ -136,6 +136,30 @@ from fastai.data.transforms import get_image_files
 import torchvision.transforms.functional as pytorch_transforms_functional
 import cv2
 
+import pandas as pd
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+import torch
+from tqdm.notebook import tqdm
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+CSV_FILE = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv'
+DATA_DIR = '/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/'
+
+BATCH_SIZE = 16
+IMG_SIZE = 140
+
+LR = 0.001
+EPOCHS = 40
+# MODEL_NAME = 'efficientnet_b0'
+
+NUM_COR = 4
+
+
+
 # SOURCE: https://github.com/pytorch/pytorch/issues/78924
 torch.set_num_threads(1)
 
