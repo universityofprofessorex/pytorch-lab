@@ -1311,16 +1311,19 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         ic("=> using pre-trained model '{}'".format(args.arch))
         # breakpoint()
         device = devices.get_optimal_device(args)
-        # models.__dict__[args.model_weights].DEFAULT = device
-        weights = models.__dict__[args.model_weights].DEFAULT
-        auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch](weights=weights).to(device)
+
+        # weights = models.__dict__[args.model_weights].DEFAULT
+        # auto_transforms = weights.transforms()
+        # model = models.__dict__[args.arch](weights=weights).to(device)
+        model = ObjLocModel()
         model.name = args.arch
+        model.to(device)
     else:
         ic("=> creating model '{}'".format(args.arch))
         device = devices.get_optimal_device(args)
-        model = ObjLocModel(args)
+        model = ObjLocModel()
         model.name = args.arch
+        # model.init_weights(args)
         model.to(device)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():

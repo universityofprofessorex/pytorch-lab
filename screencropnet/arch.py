@@ -12,8 +12,9 @@ MODEL_NAMES = sorted(
 
 
 class ObjLocModel(nn.Module):
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self):
         super(ObjLocModel, self).__init__()
+        # super().__init__()
 
         # device = devices.get_optimal_device(args)
 
@@ -22,8 +23,11 @@ class ObjLocModel(nn.Module):
         # model = models.__dict__[args.arch](weights=weights).to(device)
         # model.name = args.arch
 
-        self.backbone = timm.create_model(args.arch, pretrained=True, num_classes=4)
+        self.backbone = timm.create_model("efficientnet_b0", pretrained=True, num_classes=4)
         # self.backbone = model
+
+    # def init_weights(self, args: argparse.Namespace):
+    #     self.backbone = timm.create_model(args.arch, pretrained=True, num_classes=4)
 
     def forward(self, images, gt_bboxes=None):
         bboxes_logits = self.backbone(images)  ## predicted bounding boxes

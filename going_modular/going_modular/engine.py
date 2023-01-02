@@ -344,6 +344,8 @@ def eval_localization_fn(
             images, gt_bboxes = images.to(device, non_blocking=True), gt_bboxes.to(
                 device, non_blocking=True
             )
+            # import bpdb
+            # bpdb.set_trace()
 
             bboxes, loss = model(images, gt_bboxes)
 
