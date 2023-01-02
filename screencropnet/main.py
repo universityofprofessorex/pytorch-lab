@@ -44,6 +44,7 @@ import torchvision
 # install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
+
 # from rich.console import Console
 from rich.table import Table
 from torchvision import datasets, transforms
@@ -160,6 +161,8 @@ EPOCHS = 40
 
 NUM_COR = 4
 
+NUM_WORKERS = os.cpu_count()
+
 
 # SOURCE: https://github.com/pytorch/pytorch/issues/78924
 torch.set_num_threads(1)
@@ -167,6 +170,9 @@ torch.set_num_threads(1)
 MODEL_NAME = "ScreenCropNetV1"
 DATASET_FOLDER_NAME = "twitter_screenshots_localization_dataset"
 CONFIG_IMAGE_SIZE = (224, 224)
+
+OPENCV_GREEN = (0, 255, 0)
+OPENCV_RED = (255, 0, 0)
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
 def compare_plots(image, gt_bbox, out_bbox):
@@ -182,9 +188,9 @@ def compare_plots(image, gt_bbox, out_bbox):
     out_pt2 = (int(out_xmax), int(out_ymax))
 
     out_img = cv2.rectangle(
-        image.squeeze().permute(1, 2, 0).cpu().numpy(), pt1, pt2, (0, 255, 0), 2
+        image.squeeze().permute(1, 2, 0).cpu().numpy(), pt1, pt2, OPENCV_GREEN, 2
     )
-    out_img = cv2.rectangle(out_img, out_pt1, out_pt2, (255, 0, 0), 2)
+    out_img = cv2.rectangle(out_img, out_pt1, out_pt2, OPENCV_RED, 2)
     plt.imshow(out_img)
 
 
@@ -252,8 +258,8 @@ def convert_tensor_to_pil_image(tensor_image: torch.Tensor) -> Image:
 def predict_from_dir(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
-    transforms: torchvision.transforms,
-    class_names: List[str],
+    # transforms: torchvision.transforms,
+    # class_names: List[str],
     device: torch.device,
     args: argparse.Namespace,
 ):
@@ -277,8 +283,8 @@ def predict_from_dir(
         predict_from_file(
             paths_item,
             model,
-            transforms,
-            class_names,
+            # transforms,
+            # class_names,
             device,
             args,
         )
@@ -287,8 +293,8 @@ def predict_from_dir(
 def predict_from_file(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
-    transforms: torchvision.transforms,
-    class_names: List[str],
+    # transforms: torchvision.transforms,
+    # class_names: List[str],
     device: torch.device,
     args: argparse.Namespace,
 ):
@@ -311,38 +317,40 @@ def predict_from_file(
 
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
-    pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
+    bbox = pred_and_store(paths, model, device)
 
-    if args.to_disk and args.results != "":
-        write_predict_results_to_csv(pred_dicts, args)
+    # pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
 
-    image_class = pred_dicts[0]["pred_class"]
-    image_pred_prob = pred_dicts[0]["pred_prob"]
-    image_time_for_pred = pred_dicts[0]["time_for_pred"]
+    # if args.to_disk and args.results != "":
+    #     write_predict_results_to_csv(pred_dicts, args)
 
-    # 5. Print metadata
-    print(f"Random image path: {paths[0]}")
-    print(f"Image class: {image_class}")
-    print(f"Image pred prob: {image_pred_prob}")
-    print(f"Image pred time: {image_time_for_pred}")
-    print(f"Image height: {img.height}")
-    print(f"Image width: {img.width}")
+    # image_class = pred_dicts[0]["pred_class"]
+    # image_pred_prob = pred_dicts[0]["pred_prob"]
+    # image_time_for_pred = pred_dicts[0]["time_for_pred"]
 
-    # print prediction info to rich table
-    pred_df = pd.DataFrame(pred_dicts)
-    # console_print_table(pred_df)
+    # # 5. Print metadata
+    # print(f"Random image path: {paths[0]}")
+    # print(f"Image class: {image_class}")
+    # print(f"Image pred prob: {image_pred_prob}")
+    # print(f"Image pred time: {image_time_for_pred}")
+    # print(f"Image height: {img.height}")
+    # print(f"Image width: {img.width}")
 
-    plot_fname = (
-        f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-    )
+    # # print prediction info to rich table
+    # pred_df = pd.DataFrame(pred_dicts)
+    # # console_print_table(pred_df)
 
-    from_pil_image_to_plt_display(
-        img,
-        pred_dicts,
-        to_disk=args.to_disk,
-        interactive=args.interactive,
-        fname=plot_fname,
-    )
+    # plot_fname = (
+    #     f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    # )
+
+    # from_pil_image_to_plt_display(
+    #     img,
+    #     pred_dicts,
+    #     to_disk=args.to_disk,
+    #     interactive=args.interactive,
+    #     fname=plot_fname,
+    # )
 
 
 # ------------------------------------------------------------
@@ -452,8 +460,8 @@ def from_pil_image_to_plt_display(
     image_pred_prob = pred_dicts[0]["pred_prob"]
     image_time_for_pred = pred_dicts[0]["time_for_pred"]
 
-    if interactive:
-        plt.ion()
+    # if interactive:
+    #     plt.ion()
 
     # Plot the image with matplotlib
     plt.figure(figsize=(10, 7))
@@ -1156,16 +1164,10 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--test",
-    dest="test",
-    action="store_true",
-    help="test model on validation set",
+    "--test", dest="test", action="store_true", help="test model on validation set",
 )
 parser.add_argument(
-    "--info",
-    dest="info",
-    action="store_true",
-    help="info about this build",
+    "--info", dest="info", action="store_true", help="info about this build",
 )
 parser.add_argument(
     "--download-and-predict",
@@ -1203,10 +1205,7 @@ parser.add_argument(
     help="write files to disk",
 )
 parser.add_argument(
-    "--summary",
-    dest="summary",
-    action="store_true",
-    help="Get model summary output",
+    "--summary", dest="summary", action="store_true", help="Get model summary output",
 )
 parser.add_argument(
     "--worst-first",
@@ -1316,13 +1315,13 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # auto_transforms = weights.transforms()
         # model = models.__dict__[args.arch](weights=weights).to(device)
         model = ObjLocModel()
-        model.name = args.arch
+        model.name = "ObjLocModelV1"
         model.to(device)
     else:
         ic("=> creating model '{}'".format(args.arch))
         device = devices.get_optimal_device(args)
         model = ObjLocModel()
-        model.name = args.arch
+        model.name = "ObjLocModelV1"
         # model.init_weights(args)
         model.to(device)
 
@@ -1454,6 +1453,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             f"Total examples in the trainset: {len(trainset)} validset: {len(validset)}"
         )
 
+        # trainloader = torch.utils.data.dataloader.DataLoader(
+        #     trainset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True
+        # )
+        # validloader = torch.utils.data.dataloader.DataLoader(
+        #     trainset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True
+        # )
         trainloader = torch.utils.data.dataloader.DataLoader(
             trainset, batch_size=BATCH_SIZE, shuffle=True
         )
@@ -1529,12 +1534,10 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # if args.weights:
-    #     ic(f"loading weights from -> {args.weights}")
-    #     # loaded_model: nn.Module
-    #     model = run_get_model_for_inference(
-    #         model, device, class_names, args.weights, args
-    #     )
+    if args.weights:
+        ic(f"loading weights from -> {args.weights}")
+        # loaded_model: nn.Module
+        model = run_get_model_for_inference(model, device, args.weights, args)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -1611,30 +1614,32 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     #     )
     #     return
 
-    # if args.predict:
-    #     print(" Running predict command ...")
-    #     # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
-    #     path_to_image_from_cli = fix_path(args.predict)
+    if args.predict:
+        print(" Running predict command ...")
+        # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
+        path_to_image_from_cli = fix_path(args.predict)
 
-    #     if is_file(path_to_image_from_cli):
-    #         predict_from_file(
-    #             path_to_image_from_cli,
-    #             model,
-    #             auto_transforms,
-    #             class_names,
-    #             device,
-    #             args,
-    #         )
+        if is_file(path_to_image_from_cli):
+            predict_from_file(
+                path_to_image_from_cli,
+                model,
+                # auto_transforms,
+                # class_names,
+                device,
+                args,
+            )
 
-    #     if is_directory(path_to_image_from_cli):
-    #         predict_from_dir(
-    #             path_to_image_from_cli,
-    #             model,
-    #             auto_transforms,
-    #             class_names,
-    #             device,
-    #             args,
-    #         )
+        if is_directory(path_to_image_from_cli):
+            predict_from_dir(
+                path_to_image_from_cli,
+                model,
+                # auto_transforms,
+                # class_names,
+                device,
+                args,
+            )
+
+        sys.exit(0)
 
     #     if args.worst_first:
     #         ic(f"Writing worst first | {args.results}")
@@ -1687,16 +1692,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     ic("lets make 3 predictions on some random images")
     get_random_perdictions_and_plots(
-        loaded_model_for_inference,
-        validset,
-        device=device,
+        loaded_model_for_inference, validset, device=device,
     )
 
 
 def get_random_perdictions_and_plots(
-    best_model: nn.Module,
-    validset: ObjLocDataset,
-    device: torch.device = None,
+    best_model: nn.Module, validset: ObjLocDataset, device: torch.device = None,
 ):
 
     rand_idx = random.randint(0, (len(validset) - 1))
@@ -1971,7 +1972,7 @@ def run_save_model_for_inference(model: torch.nn.Module) -> Tuple[pathlib.PosixP
 def run_get_model_for_inference(
     model: torch.nn.Module,
     device: torch.device,
-    class_names: List[str],
+    # class_names: List[str],
     path_to_model: pathlib.PosixPath,
     args: argparse.Namespace,
 ) -> torch.nn.Module:
@@ -1985,9 +1986,7 @@ def run_get_model_for_inference(
     Returns:
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
-    loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names, args
-    )
+    loaded_model_for_inference = load_model_for_inference(path_to_model, device, args)
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
 
@@ -2021,13 +2020,14 @@ def load_model_for_inference(
     save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
     # model = create_effnetb0_model(device, class_names, args)
-    model = ObjLocModel(args)
-    model.load_state_dict(torch.load(save_path))
+    model = ObjLocModel()
+    model.name = "ObjLocModelV1"
+    model.load_state_dict(torch.load(save_path, map_location=device))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
     # Get the model size in bytes then convert to megabytes
     model_size = Path(save_path).stat().st_size // (1024 * 1024)
-    print(f"EfficientNetB2 feature extractor model size: {model_size} MB")
+    print(f"{save_path} | feature extractor model size: {model_size} MB")
 
     # get_model_summary(model)
     return model
@@ -2052,8 +2052,8 @@ def plot_image_with_predicted_label(
     fname: str = "plot.png",
 ):
     # 10. Plot image with predicted label and probability
-    if not to_disk:
-        plt.ion()
+    # if not to_disk:
+    #     plt.ion()
 
     plt.figure()
     plt.imshow(img)
@@ -2187,15 +2187,15 @@ def print_train_time(start, end, device=None, machine=None):
 def pred_and_store(
     paths: List[pathlib.Path],
     model: torch.nn.Module,
-    transform: torchvision.transforms,
-    class_names: List[str],
+    # transform: torchvision.transforms,
+    # class_names: List[str],
     device: torch.device = "",
 ) -> List[Dict]:
 
     ic(paths)
-    ic(model.name)
-    ic(transform)
-    ic(class_names)
+    # ic(model.name)
+    # ic(transform)
+    # ic(class_names)
     ic(device)
     # 2. Create an empty list to store prediction dictionaires
     pred_list = []
@@ -2208,59 +2208,101 @@ def pred_and_store(
 
         # 5. Get the sample path and ground truth class name
         pred_dict["image_path"] = path
-        class_name = path.parent.stem
-        pred_dict["class_name"] = class_name
+        # class_name = path.parent.stem
+        # pred_dict["class_name"] = class_name
 
         # 6. Start the prediction timer
         start_time = timer()
 
         # 7. Open image path
         # img = Image.open(path)
-        img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+        # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+
+        img = cv2.imread(f"{paths[0]}")
+        #  convert color image into RGB image
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        img = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
 
         # 8. Transform the image, add batch dimension and put image on target device
         # transformed_image = transform(img).unsqueeze(dim=0).to(device)
-        transformed_image = transform(img).unsqueeze(dim=0)
+        # transformed_image = transform(img).unsqueeze(dim=0)
 
         # 9. Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
         model.eval()
 
-        # 10. Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
-            pred_logit = model(
-                transformed_image.to(device)
-            )  # perform inference on target sample
-            pred_prob = torch.softmax(
-                pred_logit, dim=1
-            )  # turn logits into prediction probabilities
-            pred_label = torch.argmax(
-                pred_prob, dim=1
-            )  # turn prediction probabilities into prediction label
-            pred_class = class_names[
-                pred_label.cpu()
-            ]  # hardcode prediction class to be on CPU
+            # with torch.no_grad():
+            # image, gt_bbox = img # (c, h, w)
+            image = img.unsqueeze(0).to(device)  # (bs, c, h, w)
+            out_bbox = model(image)
+            ic(out_bbox)
 
-            # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
-            pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
-            pred_dict["pred_class"] = pred_class
+            xmin, ymin, xmax, ymax = out_bbox[0]
+            pt1 = (int(xmin), int(ymin))
+            pt2 = (int(xmax), int(ymax))
 
-            # 12. End the timer and calculate time per pred
-            end_time = timer()
-            pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+            # import bpdb
+            # bpdb.set_trace()
 
-        # 13. Does the pred match the true label?
-        pred_dict["correct"] = class_name == pred_class
+            img_numpy = img.permute(1, 2, 0).numpy()
 
-        # 14. Add the dictionary to the list of preds
-        pred_list.append(pred_dict)
+            starting_point = pt1
+            end_point = pt2
+            color = OPENCV_RED
+            thickness = 2
 
-    # 15. Return list of prediction dictionaries
-    return pred_list
+            # bnd_img = cv2.rectangle(img.permute(1, 2, 0).numpy(),pt1, pt2,(255,0,0),2)
+            bnd_img = cv2.rectangle(
+                img_numpy, starting_point, end_point, color, thickness
+            )
+            plt.imshow(bnd_img)
+            # end_time = timer()
+            # pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+            # compare_plots(image, gt_bbox, out_bbox)
+
+        # # 10. Get prediction probability, predicition label and prediction class
+        # with torch.inference_mode():
+        #     pred_logit = model(
+        #         transformed_image.to(device)
+        #     )  # perform inference on target sample
+        #     pred_prob = torch.softmax(
+        #         pred_logit, dim=1
+        #     )  # turn logits into prediction probabilities
+        #     pred_label = torch.argmax(
+        #         pred_prob, dim=1
+        #     )  # turn prediction probabilities into prediction label
+        #     pred_class = class_names[
+        #         pred_label.cpu()
+        #     ]  # hardcode prediction class to be on CPU
+
+        #     # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
+        #     pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
+        #     pred_dict["pred_class"] = pred_class
+
+        #     # 12. End the timer and calculate time per pred
+        #     end_time = timer()
+        #     pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+
+        # # 13. Does the pred match the true label?
+        # pred_dict["correct"] = class_name == pred_class
+
+        # # 14. Add the dictionary to the list of preds
+        # pred_list.append(pred_dict)
+
+    # # 15. Return list of prediction dictionaries
+    # return pred_list
+    # import bpdb
+    # bpdb.set_trace()
+    print(out_bbox)
+
+    return out_bbox
 
 
 if __name__ == "__main__":
     import traceback
+
     better_exceptions.hook()
 
     try:

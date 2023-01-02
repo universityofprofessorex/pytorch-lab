@@ -23,7 +23,9 @@ class ObjLocModel(nn.Module):
         # model = models.__dict__[args.arch](weights=weights).to(device)
         # model.name = args.arch
 
-        self.backbone = timm.create_model("efficientnet_b0", pretrained=True, num_classes=4)
+        self.backbone = timm.create_model(
+            "efficientnet_b0", pretrained=True, num_classes=4
+        )
         # self.backbone = model
 
     # def init_weights(self, args: argparse.Namespace):

@@ -15,9 +15,11 @@ from sklearn.preprocessing import LabelEncoder
 
 import rich
 from rich import inspect, print
+
 # from rich.console import Console
 from icecream import ic
 from rich import box, inspect, print
+
 # from rich.console import Console
 from rich.table import Table
 import sys

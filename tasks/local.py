@@ -341,8 +341,7 @@ pip-compile --output-file requirements-test.txt requirements-test.in
 
 
 @task(
-    pre=[call(detect_os, loc="local")],
-    incrementable=["verbose"],
+    pre=[call(detect_os, loc="local")], incrementable=["verbose"],
 )
 def pip_tools(
     ctx,
@@ -552,10 +551,7 @@ pip install -e .
 
 
 @task(
-    pre=[
-        call(detect_os, loc="local"),
-        call(clean, loc="local"),
-    ],
+    pre=[call(detect_os, loc="local"), call(clean, loc="local"),],
     incrementable=["verbose"],
 )
 def setup_jupyter(ctx, loc="local", verbose=0, cleanup=False):
@@ -591,10 +587,7 @@ jupyter nbextension enable --py widgetsnbextension --sys-prefix
 
 
 @task(
-    pre=[
-        call(detect_os, loc="local"),
-        call(clean, loc="local"),
-    ],
+    pre=[call(detect_os, loc="local"), call(clean, loc="local"),],
     incrementable=["verbose"],
 )
 def jupyter(ctx, loc="local", verbose=0, cleanup=False):
@@ -628,10 +621,7 @@ pip install -e .
 
 
 @task(
-    pre=[
-        call(detect_os, loc="local"),
-        call(clean, loc="local"),
-    ],
+    pre=[call(detect_os, loc="local"), call(clean, loc="local"),],
     incrementable=["verbose"],
 )
 def list_ports(ctx, loc="local", verbose=0, cleanup=False):
@@ -659,10 +649,7 @@ nmap -p 11267,3000,5678,6666 localhost
 
 
 @task(
-    pre=[
-        call(detect_os, loc="local"),
-        call(clean, loc="local"),
-    ],
+    pre=[call(detect_os, loc="local"), call(clean, loc="local"),],
     incrementable=["verbose"],
 )
 def pstree(ctx, loc="local", verbose=0, cleanup=False):

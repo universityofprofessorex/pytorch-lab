@@ -42,7 +42,7 @@ tensorboard:
 	tensorboard --logdir runs/
 
 predict:
-	python main.py --predict "~/Downloads/2020-11-25_10-47-32_867.jpeg" --weights ./models/ScreenNetV1.pth --interactive --to-disk
+	python main.py --predict "~/Downloads/IMG_6400.PNG" --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth --to-disk
 
 bad-predict:
 	python main.py --predict ../bad_image_test.jpg --weights ./models/ScreenNet_efficientnet_b0_basic_10_epochs.pth --interactive --to-disk
@@ -66,3 +66,6 @@ worst-first:
 zip-dataset:
 	bash ./zip-dataset.sh
 	ls -ltah ~/Downloads/datasets/twitter_screenshots_localization_dataset.zip
+
+get-best-model:
+	curl -L 'https://www.dropbox.com/s/m5mvmlv28x7xdty/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth?dl=1' > collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth

@@ -236,12 +236,7 @@ def predict_from_dir(
 
     for paths_item in paths:
         predict_from_file(
-            paths_item,
-            model,
-            transforms,
-            class_names,
-            device,
-            args,
+            paths_item, model, transforms, class_names, device, args,
         )
 
 
@@ -1128,16 +1123,10 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--test",
-    dest="test",
-    action="store_true",
-    help="test model on validation set",
+    "--test", dest="test", action="store_true", help="test model on validation set",
 )
 parser.add_argument(
-    "--info",
-    dest="info",
-    action="store_true",
-    help="info about this build",
+    "--info", dest="info", action="store_true", help="info about this build",
 )
 parser.add_argument(
     "--download-and-predict",
@@ -1175,10 +1164,7 @@ parser.add_argument(
     help="write files to disk",
 )
 parser.add_argument(
-    "--summary",
-    dest="summary",
-    action="store_true",
-    help="Get model summary output",
+    "--summary", dest="summary", action="store_true", help="Get model summary output",
 )
 parser.add_argument(
     "--worst-first",

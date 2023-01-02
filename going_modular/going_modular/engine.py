@@ -310,8 +310,9 @@ def train_localization_fn(
     for data in tqdm(dataloader):
 
         images, gt_bboxes = data
-        images, gt_bboxes = images.to(device, non_blocking=True), gt_bboxes.to(
-            device, non_blocking=True
+        images, gt_bboxes = (
+            images.to(device, non_blocking=True),
+            gt_bboxes.to(device, non_blocking=True),
         )
 
         bboxes, loss = model(images, gt_bboxes)
@@ -341,8 +342,9 @@ def eval_localization_fn(
         for data in tqdm(dataloader):
 
             images, gt_bboxes = data
-            images, gt_bboxes = images.to(device, non_blocking=True), gt_bboxes.to(
-                device, non_blocking=True
+            images, gt_bboxes = (
+                images.to(device, non_blocking=True),
+                gt_bboxes.to(device, non_blocking=True),
             )
             # import bpdb
             # bpdb.set_trace()

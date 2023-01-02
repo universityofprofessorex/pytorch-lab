@@ -27,10 +27,7 @@ def plot_training_loss(
     ax1.plot(
         np.convolve(
             minibatch_loss_list,
-            np.ones(
-                averaging_iterations,
-            )
-            / averaging_iterations,
+            np.ones(averaging_iterations,) / averaging_iterations,
             mode="valid",
         ),
         label="Running Average",
