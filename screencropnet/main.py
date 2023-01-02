@@ -2218,11 +2218,11 @@ def pred_and_store(
         # img = Image.open(path)
         # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
-        img = cv2.imread(f"{paths[0]}")
+        img: np.ndarray = cv2.imread(f"{paths[0]}")
         #  convert color image into RGB image
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        img = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
+        img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
 
         # 8. Transform the image, add batch dimension and put image on target device
         # transformed_image = transform(img).unsqueeze(dim=0).to(device)
@@ -2235,8 +2235,8 @@ def pred_and_store(
         with torch.inference_mode():
             # with torch.no_grad():
             # image, gt_bbox = img # (c, h, w)
-            image = img.unsqueeze(0).to(device)  # (bs, c, h, w)
-            out_bbox = model(image)
+            image: torch.Tensor = img.unsqueeze(0).to(device)  # (bs, c, h, w)
+            out_bbox: torch.Tensor  = model(image)
             ic(out_bbox)
 
             xmin, ymin, xmax, ymax = out_bbox[0]
@@ -2246,7 +2246,7 @@ def pred_and_store(
             # import bpdb
             # bpdb.set_trace()
 
-            img_numpy = img.permute(1, 2, 0).numpy()
+            img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
 
             starting_point = pt1
             end_point = pt2
@@ -2258,6 +2258,9 @@ def pred_and_store(
                 img_numpy, starting_point, end_point, color, thickness
             )
             plt.imshow(bnd_img)
+            # if to_disk:
+            # # plt.imsave(fname, img_as_array)
+            plt.savefig("plot.png")
             # end_time = timer()
             # pred_dict["time_for_pred"] = round(end_time - start_time, 4)
             # compare_plots(image, gt_bbox, out_bbox)
