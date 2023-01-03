@@ -153,6 +153,10 @@ from enum import IntEnum
 
 from ml_types import ImageNdarrayBGR, ImageNdarrayHWC
 
+import torchvision.transforms.functional as FT
+from PIL import Image
+from typing import Union
+
 
 CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
 DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
@@ -183,6 +187,88 @@ CONFIG_IMAGE_SIZE = (224, 224)
 
 OPENCV_GREEN = (0, 255, 0)
 OPENCV_RED = (255, 0, 0)
+
+# --------------------------------------------------------------------------------
+# SOURCE FOR THIS ENTIRE BLOCK
+# SOURCE: https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py
+def xy_to_cxcy(xy):
+    """
+    Convert bounding boxes from boundary coordinates (x_min, y_min, x_max, y_max) to center-size coordinates (c_x, c_y, w, h).
+    :param xy: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
+    :return: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
+    """
+    return torch.cat([(xy[:, 2:] + xy[:, :2]) / 2,  # c_x, c_y
+                      xy[:, 2:] - xy[:, :2]], 1)  # w, h
+
+
+def cxcy_to_xy(cxcy):
+    """
+    Convert bounding boxes from center-size coordinates (c_x, c_y, w, h) to boundary coordinates (x_min, y_min, x_max, y_max).
+    :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
+    :return: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
+    """
+    return torch.cat([cxcy[:, :2] - (cxcy[:, 2:] / 2),  # x_min, y_min
+                      cxcy[:, :2] + (cxcy[:, 2:] / 2)], 1)  # x_max, y_max
+
+
+def cxcy_to_gcxgcy(cxcy, priors_cxcy):
+    """
+    Encode bounding boxes (that are in center-size form) w.r.t. the corresponding prior boxes (that are in center-size form).
+    For the center coordinates, find the offset with respect to the prior box, and scale by the size of the prior box.
+    For the size coordinates, scale by the size of the prior box, and convert to the log-space.
+    In the model, we are predicting bounding box coordinates in this encoded form.
+    :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_priors, 4)
+    :param priors_cxcy: prior boxes with respect to which the encoding must be performed, a tensor of size (n_priors, 4)
+    :return: encoded bounding boxes, a tensor of size (n_priors, 4)
+    """
+
+    # The 10 and 5 below are referred to as 'variances' in the original Caffe repo, completely empirical
+    # They are for some sort of numerical conditioning, for 'scaling the localization gradient'
+    # See https://github.com/weiliu89/caffe/issues/155
+    return torch.cat([(cxcy[:, :2] - priors_cxcy[:, :2]) / (priors_cxcy[:, 2:] / 10),  # g_c_x, g_c_y
+                      torch.log(cxcy[:, 2:] / priors_cxcy[:, 2:]) * 5], 1)  # g_w, g_h
+
+
+def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
+    """
+    Decode bounding box coordinates predicted by the model, since they are encoded in the form mentioned above.
+    They are decoded into center-size coordinates.
+    This is the inverse of the function above.
+    :param gcxgcy: encoded bounding boxes, i.e. output of the model, a tensor of size (n_priors, 4)
+    :param priors_cxcy: prior boxes with respect to which the encoding is defined, a tensor of size (n_priors, 4)
+    :return: decoded bounding boxes in center-size form, a tensor of size (n_priors, 4)
+    """
+
+    return torch.cat([gcxgcy[:, :2] * priors_cxcy[:, 2:] / 10 + priors_cxcy[:, :2],  # c_x, c_y
+                      torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:]], 1)  # w, h
+
+def resize_image_and_bbox(image: torch.Tensor, boxes: torch.Tensor, dims=(300, 300), return_percent_coords=False, device: torch.device = None):
+    """
+    Resize image. For the SSD300, resize to (300, 300).
+    Since percent/fractional coordinates are calculated for the bounding boxes (w.r.t image dimensions) in this process,
+    you may choose to retain them.
+    :param image: image, a PIL Image
+    :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
+    :return: resized image, updated bounding box coordinates (or fractional coordinates, in which case they remain the same)
+    """
+
+    image_tensor_to_resize_height = image.shape[1]
+    image_tensor_to_resize_width = image.shape[2]
+
+    # Resize image
+    new_image = FT.resize(image, dims)
+
+    # Resize bounding boxes
+    old_dims = torch.FloatTensor([image_tensor_to_resize_width, image_tensor_to_resize_height, image_tensor_to_resize_width, image_tensor_to_resize_height]).unsqueeze(0).to(device)
+    new_boxes = boxes / old_dims  # percent coordinates
+
+    if not return_percent_coords:
+        new_dims = torch.FloatTensor([dims[1], dims[0], dims[1], dims[0]]).unsqueeze(0).to(device)
+        new_boxes = new_boxes * new_dims
+
+    return new_image, new_boxes
+
+# --------------------------------------------------------------------------------
 
 def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
     rows = len(images_filepaths) // cols
@@ -345,8 +431,6 @@ def predict_from_dir(
 def predict_from_file(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
-    # transforms: torchvision.transforms,
-    # class_names: List[str],
     device: torch.device,
     args: argparse.Namespace,
 ):
@@ -367,46 +451,22 @@ def predict_from_file(
     paths = []
     paths.append(image_path_api)
 
-    # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
-    img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
+    img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+    # img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
 
-    # import bpdb
-    # bpdb.set_trace()
+    bboxes = pred_and_store(paths, model, device)
 
-    bbox = pred_and_store(paths, model, device)
+    plot_fname = (
+        f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    )
 
-    # pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
-
-    # if args.to_disk and args.results != "":
-    #     write_predict_results_to_csv(pred_dicts, args)
-
-    # image_class = pred_dicts[0]["pred_class"]
-    # image_pred_prob = pred_dicts[0]["pred_prob"]
-    # image_time_for_pred = pred_dicts[0]["time_for_pred"]
-
-    # # 5. Print metadata
-    # print(f"Random image path: {paths[0]}")
-    # print(f"Image class: {image_class}")
-    # print(f"Image pred prob: {image_pred_prob}")
-    # print(f"Image pred time: {image_time_for_pred}")
-    # print(f"Image height: {img.height}")
-    # print(f"Image width: {img.width}")
-
-    # # print prediction info to rich table
-    # pred_df = pd.DataFrame(pred_dicts)
-    # # console_print_table(pred_df)
-
-    # plot_fname = (
-    #     f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-    # )
-
-    # from_pil_image_to_plt_display(
-    #     img,
-    #     pred_dicts,
-    #     to_disk=args.to_disk,
-    #     interactive=args.interactive,
-    #     fname=plot_fname,
-    # )
+    from_pil_image_to_plt_display(
+        img,
+        bboxes,
+        to_disk=args.to_disk,
+        interactive=args.interactive,
+        fname=plot_fname,
+    )
 
 
 # ------------------------------------------------------------
@@ -496,7 +556,7 @@ def fix_path(path: str):
 
 def from_pil_image_to_plt_display(
     img: Image,
-    pred_dicts: List[Dict],
+    bboxes: torch.Tensor,
     to_disk: bool = True,
     interactive: bool = True,
     fname: str = "plot.png",
@@ -509,28 +569,43 @@ def from_pil_image_to_plt_display(
         to_disk (bool, optional): _description_. Defaults to True.
         interactive (bool, optional): _description_. Defaults to True.
     """
+
+    MODEL_PATH = Path("results")
+    MODEL_PATH.mkdir(
+        parents=True,  # create parent directories if needed
+        exist_ok=True,  # if models directory already exists, don't error
+    )
+
     # Turn the image into an array
     img_as_array = np.asarray(img)
 
-    image_class = pred_dicts[0]["pred_class"]
-    image_pred_prob = pred_dicts[0]["pred_prob"]
-    image_time_for_pred = pred_dicts[0]["time_for_pred"]
+    # get fullsize bboxes
+    xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
 
-    # if interactive:
-    #     plt.ion()
+    pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+    pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
+
+    starting_point_fullsize = pt1_fullsize
+    end_point_fullsize = pt2_fullsize
+    color = OPENCV_RED
+    thickness = 1
+
+    out_img = cv2.rectangle(
+        img_as_array, starting_point_fullsize, end_point_fullsize, color, thickness
+    )
 
     # Plot the image with matplotlib
     plt.figure(figsize=(10, 7))
-    plt.imshow(img_as_array)
+    plt.imshow(out_img)
     title_font_dict = {"fontsize": "10"}
     plt.title(
-        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]",
+        f"pt1: {pt1_fullsize} | pt2: {pt2_fullsize}",
         fontdict=title_font_dict,
     )
     plt.axis(False)
+    plt.show()
 
     if to_disk:
-        # plt.imsave(fname, img_as_array)
         plt.savefig(fname)
 
 
@@ -1658,7 +1733,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         print(" Running test command ...")
         data = []
         gt_bboxes_list = []
-        import bpdb
+        # import bpdb
         stream = tqdm(validloader)
         for i, (images, gt_bboxes) in enumerate(stream):
             data[i] = (images[i], gt_bboxes[i])
@@ -1669,7 +1744,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             # images.shape
 
         print(len(data))
-        bpdb.set_trace()
+        # bpdb.set_trace()
         # image_folder_api = get_image_files(path_to_image_from_cli)
         # ic(image_folder_api)
 
@@ -2202,71 +2277,42 @@ def pred_and_store(
 
         # 5. Get the sample path and ground truth class name
         pred_dict["image_path"] = path
-        # class_name = path.parent.stem
-        # pred_dict["class_name"] = class_name
 
         # 6. Start the prediction timer
         start_time = timer()
 
         targetSize = Dimensions.HEIGHT
         # 7. Open image path
-        # img = Image.open(path)
-        # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+
         img: ImageNdarrayBGR
-        # img_shape: Tuple
+
         img_channel: int
         img_height: int
         img_width: int
 
+        # import bpdb
+        # bpdb.set_trace()
+
         img, img_channel, img_height, img_width = read_image_to_bgr(f"{paths[0]}")
 
-        # w, h = im.size
-        # pil_img = Image.open(f"{paths[0]}")
-        # resized = pil_img.resize()
-        resized = cv2.resize(img, (targetSize, targetSize))
+
+        resized = cv2.resize(img, (targetSize, targetSize), interpolation = cv2.INTER_AREA)
         print(resized.shape)
 
-        import bpdb
-        bpdb.set_trace()
-
-        img: torch.Tensor = convert_image_from_hwc_to_chw(resized)
-
-        height_scale = targetSize / img_height
-        width_scale = targetSize / img_width
-
-        print(height_scale, width_scale)
-
-        # transform image in memory
-
-        # img_channel, img_height, img_width = img_shape[0], img_shape[1], img_shape[2]
-        # img: np.ndarray = cv2.imread(f"{paths[0]}")
-        # #  convert color image into RGB image
-        # img: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # transform = A.Compose([
-        #     A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH)
-        # ], bbox_params=A.BboxParams(format='pascal_voc', label_fields = ['class_labels']))
-
-        # data = transform(image = img, bboxes = bbox, class_labels=[None])
-
-
-
-
-        # img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
-
-        # 8. Transform the image, add batch dimension and put image on target device
-        # transformed_image = transform(img).unsqueeze(dim=0).to(device)
-        # transformed_image = transform(img).unsqueeze(dim=0)
+        # normalize and change output to (c, h, w)
+        resized_tensor: torch.Tensor = (torch.from_numpy(resized).permute(2, 0, 1) / 255.0)
 
         # 9. Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
         model.eval()
 
         with torch.inference_mode():
-            # with torch.no_grad():
-            # image, gt_bbox = img # (c, h, w)
-            image: torch.Tensor = img.unsqueeze(0).to(device)  # (bs, c, h, w)
-            out_bbox: torch.Tensor  = model(image)
+            # Convert to (bs, c, h, w)
+            unsqueezed_tensor = resized_tensor.unsqueeze(0).to(device)
+
+            # predict
+            out_bbox: torch.Tensor   = model(unsqueezed_tensor)
+
             ic(out_bbox)
 
             xmin, ymin, xmax, ymax = out_bbox[0]
@@ -2276,65 +2322,83 @@ def pred_and_store(
             # import bpdb
             # bpdb.set_trace()
 
-            img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
-
             starting_point = pt1
             end_point = pt2
-            color = OPENCV_RED
+            color = (255,0,0)
             thickness = 2
 
-            # bnd_img = cv2.rectangle(img.permute(1, 2, 0).numpy(),pt1, pt2,(255,0,0),2)
-            bnd_img = cv2.rectangle(
-                img_numpy, starting_point, end_point, color, thickness
+            # generate the image with bounding box on it
+            out_img = cv2.rectangle(
+                unsqueezed_tensor.squeeze().permute(1, 2, 0).cpu().numpy(), starting_point, end_point, color, thickness
             )
-            plt.imshow(bnd_img)
-            # if to_disk:
-            # # plt.imsave(fname, img_as_array)
 
-            image_path_api = pathlib.Path(path).resolve()
-            plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+            # TODO: Enable this?
+            # if --display
+            # plt.imshow(out_img)
 
-            plt.savefig(plot_fname)
-            # end_time = timer()
-            # pred_dict["time_for_pred"] = round(end_time - start_time, 4)
-            # compare_plots(image, gt_bbox, out_bbox)
+            # NOTE: At this point we have our bounding box for the smaller image, lets figure out what the values would be for a larger image.
+            # First setup variables we need
+            # -------------------------------------------------------
+            image_tensor_to_resize = resized_tensor
+            resized_bboxes_tensor = out_bbox[0]
+            resized_height = img_height
+            resized_width = img_width
+            resized_dims = (resized_height, resized_width)
 
-        # # 10. Get prediction probability, predicition label and prediction class
-        # with torch.inference_mode():
-        #     pred_logit = model(
-        #         transformed_image.to(device)
-        #     )  # perform inference on target sample
-        #     pred_prob = torch.softmax(
-        #         pred_logit, dim=1
-        #     )  # turn logits into prediction probabilities
-        #     pred_label = torch.argmax(
-        #         pred_prob, dim=1
-        #     )  # turn prediction probabilities into prediction label
-        #     pred_class = class_names[
-        #         pred_label.cpu()
-        #     ]  # hardcode prediction class to be on CPU
+            image_tensor_to_resize_channels = image_tensor_to_resize.shape[0]
+            image_tensor_to_resize_height = image_tensor_to_resize.shape[1]
+            image_tensor_to_resize_width = image_tensor_to_resize.shape[2]
 
-        #     # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
-        #     pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
-        #     pred_dict["pred_class"] = pred_class
+            # perform fullsize transformation
+            fullsize_image, fullsize_bboxes = resize_image_and_bbox(image_tensor_to_resize, resized_bboxes_tensor, dims=resized_dims, return_percent_coords=False, device=device)
 
-        #     # 12. End the timer and calculate time per pred
-        #     end_time = timer()
-        #     pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+            # get fullsize bboxes
+            xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = fullsize_bboxes[0]
 
-        # # 13. Does the pred match the true label?
-        # pred_dict["correct"] = class_name == pred_class
+            pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+            pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
 
-        # # 14. Add the dictionary to the list of preds
-        # pred_list.append(pred_dict)
+            starting_point_fullsize = pt1_fullsize
+            end_point_fullsize = pt2_fullsize
+            color = OPENCV_RED
+            thickness = 1
 
-    # # 15. Return list of prediction dictionaries
-    # return pred_list
-    # import bpdb
-    # bpdb.set_trace()
-    print(out_bbox)
+            # NOTE: commented out for now, move this into a display image function
+            # FIXME
+            # FIXME
+            # FIXME
+            # FIXME
+            # FIXME
+            # out_img = cv2.rectangle(
+            #     img, starting_point, end_point, color, thickness
+            # )
+            # plt.imshow(out_img)
+            # -------------------------------------------------------
 
-    return out_bbox
+
+            # img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
+
+            # starting_point = pt1
+            # end_point = pt2
+            # color = OPENCV_RED
+            # thickness = 2
+
+            # # bnd_img = cv2.rectangle(img.permute(1, 2, 0).numpy(),pt1, pt2,(255,0,0),2)
+            # bnd_img = cv2.rectangle(
+            #     img_numpy, starting_point, end_point, color, thickness
+            # )
+            # plt.imshow(bnd_img)
+            # # if to_disk:
+            # # # plt.imsave(fname, img_as_array)
+
+            # image_path_api = pathlib.Path(path).resolve()
+            # plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+
+            # plt.savefig(plot_fname)
+
+    print(fullsize_bboxes)
+
+    return fullsize_bboxes
 
 
 if __name__ == "__main__":
