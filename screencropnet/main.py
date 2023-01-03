@@ -42,6 +42,7 @@ import torch
 import torchvision
 
 from rich.traceback import install
+
 install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
@@ -163,11 +164,14 @@ DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_d
 
 BATCH_SIZE = 16
 IMG_SIZE = 140
+
+
 class Dimensions(IntEnum):
     # HEIGHT = 2532
     # WIDTH = 1170
     HEIGHT = 140
     WIDTH = 140
+
 
 LR = 0.001
 EPOCHS = 40
@@ -197,8 +201,9 @@ def xy_to_cxcy(xy):
     :param xy: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
     :return: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
     """
-    return torch.cat([(xy[:, 2:] + xy[:, :2]) / 2,  # c_x, c_y
-                      xy[:, 2:] - xy[:, :2]], 1)  # w, h
+    return torch.cat(
+        [(xy[:, 2:] + xy[:, :2]) / 2, xy[:, 2:] - xy[:, :2]], 1  # c_x, c_y
+    )  # w, h
 
 
 def cxcy_to_xy(cxcy):
@@ -207,8 +212,13 @@ def cxcy_to_xy(cxcy):
     :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
     :return: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
     """
-    return torch.cat([cxcy[:, :2] - (cxcy[:, 2:] / 2),  # x_min, y_min
-                      cxcy[:, :2] + (cxcy[:, 2:] / 2)], 1)  # x_max, y_max
+    return torch.cat(
+        [
+            cxcy[:, :2] - (cxcy[:, 2:] / 2),  # x_min, y_min
+            cxcy[:, :2] + (cxcy[:, 2:] / 2),
+        ],
+        1,
+    )  # x_max, y_max
 
 
 def cxcy_to_gcxgcy(cxcy, priors_cxcy):
@@ -225,8 +235,14 @@ def cxcy_to_gcxgcy(cxcy, priors_cxcy):
     # The 10 and 5 below are referred to as 'variances' in the original Caffe repo, completely empirical
     # They are for some sort of numerical conditioning, for 'scaling the localization gradient'
     # See https://github.com/weiliu89/caffe/issues/155
-    return torch.cat([(cxcy[:, :2] - priors_cxcy[:, :2]) / (priors_cxcy[:, 2:] / 10),  # g_c_x, g_c_y
-                      torch.log(cxcy[:, 2:] / priors_cxcy[:, 2:]) * 5], 1)  # g_w, g_h
+    return torch.cat(
+        [
+            (cxcy[:, :2] - priors_cxcy[:, :2])
+            / (priors_cxcy[:, 2:] / 10),  # g_c_x, g_c_y
+            torch.log(cxcy[:, 2:] / priors_cxcy[:, 2:]) * 5,
+        ],
+        1,
+    )  # g_w, g_h
 
 
 def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
@@ -239,10 +255,22 @@ def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
     :return: decoded bounding boxes in center-size form, a tensor of size (n_priors, 4)
     """
 
-    return torch.cat([gcxgcy[:, :2] * priors_cxcy[:, 2:] / 10 + priors_cxcy[:, :2],  # c_x, c_y
-                      torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:]], 1)  # w, h
+    return torch.cat(
+        [
+            gcxgcy[:, :2] * priors_cxcy[:, 2:] / 10 + priors_cxcy[:, :2],  # c_x, c_y
+            torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:],
+        ],
+        1,
+    )  # w, h
 
-def resize_image_and_bbox(image: torch.Tensor, boxes: torch.Tensor, dims=(300, 300), return_percent_coords=False, device: torch.device = None):
+
+def resize_image_and_bbox(
+    image: torch.Tensor,
+    boxes: torch.Tensor,
+    dims=(300, 300),
+    return_percent_coords=False,
+    device: torch.device = None,
+):
     """
     Resize image. For the SSD300, resize to (300, 300).
     Since percent/fractional coordinates are calculated for the bounding boxes (w.r.t image dimensions) in this process,
@@ -259,16 +287,33 @@ def resize_image_and_bbox(image: torch.Tensor, boxes: torch.Tensor, dims=(300, 3
     new_image = FT.resize(image, dims)
 
     # Resize bounding boxes
-    old_dims = torch.FloatTensor([image_tensor_to_resize_width, image_tensor_to_resize_height, image_tensor_to_resize_width, image_tensor_to_resize_height]).unsqueeze(0).to(device)
+    old_dims = (
+        torch.FloatTensor(
+            [
+                image_tensor_to_resize_width,
+                image_tensor_to_resize_height,
+                image_tensor_to_resize_width,
+                image_tensor_to_resize_height,
+            ]
+        )
+        .unsqueeze(0)
+        .to(device)
+    )
     new_boxes = boxes / old_dims  # percent coordinates
 
     if not return_percent_coords:
-        new_dims = torch.FloatTensor([dims[1], dims[0], dims[1], dims[0]]).unsqueeze(0).to(device)
+        new_dims = (
+            torch.FloatTensor([dims[1], dims[0], dims[1], dims[0]])
+            .unsqueeze(0)
+            .to(device)
+        )
         new_boxes = new_boxes * new_dims
 
     return new_image, new_boxes
 
+
 # --------------------------------------------------------------------------------
+
 
 def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
     rows = len(images_filepaths) // cols
@@ -285,6 +330,7 @@ def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
         ax.ravel()[i].set_axis_off()
     plt.tight_layout()
     plt.show()
+
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
 def compare_plots(image, gt_bbox, out_bbox):
@@ -340,6 +386,7 @@ def convert_pil_image_to_rgb_channels(image_path: str):
         pil_image = Image.open(image_path)
         return pil_image
 
+
 def read_image_to_bgr(image_path: str) -> ImageNdarrayBGR:
     """Read the image from image id.
 
@@ -362,8 +409,11 @@ def read_image_to_bgr(image_path: str) -> ImageNdarrayBGR:
     img_width = image.shape[1]
     return image, img_channel, img_height, img_width
 
+
 def convert_image_from_hwc_to_chw(img: ImageNdarrayBGR) -> torch.Tensor:
-    img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
+    img: torch.Tensor = (
+        torch.from_numpy(img).permute(2, 0, 1) / 255.0
+    )  # (h,w,c) -> (c,h,w)
     return img
 
 
@@ -1295,10 +1345,16 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--test", dest="test", action="store_true", help="test model on validation set",
+    "--test",
+    dest="test",
+    action="store_true",
+    help="test model on validation set",
 )
 parser.add_argument(
-    "--info", dest="info", action="store_true", help="info about this build",
+    "--info",
+    dest="info",
+    action="store_true",
+    help="info about this build",
 )
 parser.add_argument(
     "--download-and-predict",
@@ -1336,7 +1392,10 @@ parser.add_argument(
     help="write files to disk",
 )
 parser.add_argument(
-    "--summary", dest="summary", action="store_true", help="Get model summary output",
+    "--summary",
+    dest="summary",
+    action="store_true",
+    help="Get model summary output",
 )
 parser.add_argument(
     "--worst-first",
@@ -1740,8 +1799,8 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # for data in tqdm(validloader):
         #     images, gt_bboxes = data
 
-            # print(images, gt_bboxes)
-            # images.shape
+        # print(images, gt_bboxes)
+        # images.shape
 
         print(len(data))
         # bpdb.set_trace()
@@ -1781,12 +1840,16 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     ic("lets make 3 predictions on some random images")
     get_random_perdictions_and_plots(
-        loaded_model_for_inference, validset, device=device,
+        loaded_model_for_inference,
+        validset,
+        device=device,
     )
 
 
 def get_random_perdictions_and_plots(
-    best_model: nn.Module, validset: ObjLocDataset, device: torch.device = None,
+    best_model: nn.Module,
+    validset: ObjLocDataset,
+    device: torch.device = None,
 ):
 
     rand_idx = random.randint(0, (len(validset) - 1))
@@ -1830,6 +1893,7 @@ class Summary(Enum):
     AVERAGE = 1
     SUM = 2
     COUNT = 3
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -2227,6 +2291,7 @@ def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
 
+
 def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
@@ -2295,12 +2360,15 @@ def pred_and_store(
 
         img, img_channel, img_height, img_width = read_image_to_bgr(f"{paths[0]}")
 
-
-        resized = cv2.resize(img, (targetSize, targetSize), interpolation = cv2.INTER_AREA)
+        resized = cv2.resize(
+            img, (targetSize, targetSize), interpolation=cv2.INTER_AREA
+        )
         print(resized.shape)
 
         # normalize and change output to (c, h, w)
-        resized_tensor: torch.Tensor = (torch.from_numpy(resized).permute(2, 0, 1) / 255.0)
+        resized_tensor: torch.Tensor = (
+            torch.from_numpy(resized).permute(2, 0, 1) / 255.0
+        )
 
         # 9. Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
@@ -2311,7 +2379,7 @@ def pred_and_store(
             unsqueezed_tensor = resized_tensor.unsqueeze(0).to(device)
 
             # predict
-            out_bbox: torch.Tensor   = model(unsqueezed_tensor)
+            out_bbox: torch.Tensor = model(unsqueezed_tensor)
 
             ic(out_bbox)
 
@@ -2324,12 +2392,16 @@ def pred_and_store(
 
             starting_point = pt1
             end_point = pt2
-            color = (255,0,0)
+            color = (255, 0, 0)
             thickness = 2
 
             # generate the image with bounding box on it
             out_img = cv2.rectangle(
-                unsqueezed_tensor.squeeze().permute(1, 2, 0).cpu().numpy(), starting_point, end_point, color, thickness
+                unsqueezed_tensor.squeeze().permute(1, 2, 0).cpu().numpy(),
+                starting_point,
+                end_point,
+                color,
+                thickness,
             )
 
             # TODO: Enable this?
@@ -2350,10 +2422,21 @@ def pred_and_store(
             image_tensor_to_resize_width = image_tensor_to_resize.shape[2]
 
             # perform fullsize transformation
-            fullsize_image, fullsize_bboxes = resize_image_and_bbox(image_tensor_to_resize, resized_bboxes_tensor, dims=resized_dims, return_percent_coords=False, device=device)
+            fullsize_image, fullsize_bboxes = resize_image_and_bbox(
+                image_tensor_to_resize,
+                resized_bboxes_tensor,
+                dims=resized_dims,
+                return_percent_coords=False,
+                device=device,
+            )
 
             # get fullsize bboxes
-            xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = fullsize_bboxes[0]
+            (
+                xmin_fullsize,
+                ymin_fullsize,
+                xmax_fullsize,
+                ymax_fullsize,
+            ) = fullsize_bboxes[0]
 
             pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
             pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
@@ -2374,7 +2457,6 @@ def pred_and_store(
             # )
             # plt.imshow(out_img)
             # -------------------------------------------------------
-
 
             # img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
 

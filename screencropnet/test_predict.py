@@ -25,6 +25,7 @@ import torchvision
 # from rich.traceback import install
 # install(show_locals=True)
 from icecream import ic
+
 # from rich import box, inspect, print
 
 # from rich.console import Console
@@ -123,8 +124,10 @@ from tqdm.notebook import tqdm
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+
 # from data_set import ObjLocDataset
 import albumentations as A
+
 # from arch import ObjLocModel
 
 CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
@@ -170,7 +173,6 @@ class ObjLocModel(nn.Module):
     def __init__(self):
         super(ObjLocModel, self).__init__()
 
-
         self.backbone = timm.create_model(
             "efficientnet_b0", pretrained=True, num_classes=4
         )
@@ -185,18 +187,20 @@ class ObjLocModel(nn.Module):
 
         return bboxes_logits
 
-def get_bbox(bboxes, col, color='white', bbox_format='pascal_voc'):
+
+def get_bbox(bboxes, col, color="white", bbox_format="pascal_voc"):
 
     for i in range(len(bboxes)):
         # Create a Rectangle patch
-        if bbox_format == 'pascal_voc':
+        if bbox_format == "pascal_voc":
             rect = patches.Rectangle(
                 (bboxes[i][0], bboxes[i][1]),
                 bboxes[i][2] - bboxes[i][0],
                 bboxes[i][3] - bboxes[i][1],
                 linewidth=2,
                 edgecolor=color,
-                facecolor='none')
+                facecolor="none",
+            )
         else:
             rect = patches.Rectangle(
                 (bboxes[i][0], bboxes[i][1]),
@@ -204,13 +208,14 @@ def get_bbox(bboxes, col, color='white', bbox_format='pascal_voc'):
                 bboxes[i][3],
                 linewidth=2,
                 edgecolor=color,
-                facecolor='none')
+                facecolor="none",
+            )
 
         # Add the patch to the Axes
         col.add_patch(rect)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
 
     try:
         IMG_SIZE = 140
@@ -218,11 +223,11 @@ if __name__ == "__main__":
         path = "/Users/malcolm/Downloads/dummy_data/IMG_6324.PNG"
         img = cv2.imread(f"{path}", cv2.IMREAD_COLOR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
-        img = cv2.resize(img, (140, 140), interpolation = cv2.INTER_AREA)
+        img = cv2.resize(img, (140, 140), interpolation=cv2.INTER_AREA)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img /= 255.0 # Normalize
+        img /= 255.0  # Normalize
 
-        print('Resized Dimensions : ',img.shape)
+        print("Resized Dimensions : ", img.shape)
 
         # plt.figure(figsize = (10, 10))
         # plt.imshow(img)
@@ -233,9 +238,13 @@ if __name__ == "__main__":
         model.to(device)
         model.name = "ObjLocModelV1"
 
-        model.load_state_dict(torch.load("./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth", map_location=device))
+        model.load_state_dict(
+            torch.load(
+                "./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth",
+                map_location=device,
+            )
+        )
         model.eval()
-
 
         aug = A.Compose(
             [A.Resize(IMG_SIZE, IMG_SIZE)],
@@ -246,21 +255,21 @@ if __name__ == "__main__":
         with torch.no_grad():
             print("lets do this")
             import bpdb
+
             bpdb.set_trace()
             # img: torch.Tensor = (
             #     torch.from_numpy(img).permute(2, 0, 1) / 255.0
             # )  # (h,w,c) -> (c,h,w)
-            img2: torch.Tensor = (torch.from_numpy(img).permute(2, 0, 1) / 255.0)
-            img = img.unsqueeze(0).to(device) # (bs, c, h, w)
+            img2: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0
+            img = img.unsqueeze(0).to(device)  # (bs, c, h, w)
             out_bbox = model(img)
             data = aug(image=img, bboxes=out_bbox, class_labels=[None])
             img = data["image"]
             bbox = data["bboxes"][0]
 
-
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 16))
-        get_bbox(bbox, ax[0], color='red')
-        ax[0].title.set_text('Original Image')
+        get_bbox(bbox, ax[0], color="red")
+        ax[0].title.set_text("Original Image")
         ax[0].imshow(img)
         plt.show()
     except Exception as ex:

@@ -17,12 +17,16 @@ def convert_image_numpy_array_to_tensor(img: np.ndarray):
     img = torch.from_numpy(img).permute(2, 0, 1) / 255.0
     return img
 
+
 def safe_read_image(path: str):
     img = opencv_read_and_convert_image(path)
     img = convert_image_numpy_array_to_tensor(img)
     return img
 
-def load_and_transform_image_for_prediction(path: str, transform: Union[A.Compose, NoneType] = None, img_size = 140):
+
+def load_and_transform_image_for_prediction(
+    path: str, transform: Union[A.Compose, NoneType] = None, img_size=140
+):
     img = safe_read_image(path)
 
     if transform is not None:
