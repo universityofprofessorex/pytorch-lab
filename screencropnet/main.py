@@ -41,17 +41,18 @@ import rich
 import torch
 import torchvision
 
-# install(show_locals=True)
+from rich.traceback import install
+install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
 
-# from rich.console import Console
+from rich.console import Console
 from rich.table import Table
 from torchvision import datasets, transforms
 
 better_exceptions.hook()
 
-# console: Console = Console()
+console: Console = Console()
 # ---------------------------------------------------------------------------
 
 
@@ -148,12 +149,21 @@ from sklearn.preprocessing import LabelEncoder
 from data_set import ObjLocDataset
 import albumentations as A
 from arch import ObjLocModel
+from enum import IntEnum
+
+from ml_types import ImageNdarrayBGR, ImageNdarrayHWC
+
 
 CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
 DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
 
 BATCH_SIZE = 16
 IMG_SIZE = 140
+class Dimensions(IntEnum):
+    # HEIGHT = 2532
+    # WIDTH = 1170
+    HEIGHT = 140
+    WIDTH = 140
 
 LR = 0.001
 EPOCHS = 40
@@ -173,6 +183,22 @@ CONFIG_IMAGE_SIZE = (224, 224)
 
 OPENCV_GREEN = (0, 255, 0)
 OPENCV_RED = (255, 0, 0)
+
+def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
+    rows = len(images_filepaths) // cols
+    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    for i, image_filepath in enumerate(images_filepaths):
+        image = cv2.imread(image_filepath)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # true_label = os.path.normpath(image_filepath).split(os.sep)[-2]
+        # predicted_label = predicted_labels[i] if predicted_labels else true_label
+        # color = "green" if true_label == predicted_label else "red"
+        color = "green"
+        ax.ravel()[i].imshow(image)
+        ax.ravel()[i].set_title(image_filepath, color=color)
+        ax.ravel()[i].set_axis_off()
+    plt.tight_layout()
+    plt.show()
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
 def compare_plots(image, gt_bbox, out_bbox):
@@ -227,6 +253,32 @@ def convert_pil_image_to_rgb_channels(image_path: str):
     else:
         pil_image = Image.open(image_path)
         return pil_image
+
+def read_image_to_bgr(image_path: str) -> ImageNdarrayBGR:
+    """Read the image from image id.
+
+    returns ImageNdarrayBGR.
+
+    Opencv returns ndarry in format = row (height) x column (width) x color (3)
+    """
+
+    # image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+    # image /= 255.0  # Normalize
+
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # import bpdb
+    # bpdb.set_trace()
+    # img_shape = image.shape
+    img_channel = image.shape[2]
+    img_height = image.shape[0]
+    img_width = image.shape[1]
+    return image, img_channel, img_height, img_width
+
+def convert_image_from_hwc_to_chw(img: ImageNdarrayBGR) -> torch.Tensor:
+    img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
+    return img
 
 
 # convert image back and forth if needed: https://stackoverflow.com/questions/68207510/how-to-use-torchvision-io-read-image-with-image-as-variable-not-stored-file
@@ -315,7 +367,11 @@ def predict_from_file(
     paths = []
     paths.append(image_path_api)
 
-    img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+    # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+    img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
+
+    # import bpdb
+    # bpdb.set_trace()
 
     bbox = pred_and_store(paths, model, device)
 
@@ -869,26 +925,26 @@ def df_to_table(
     return rich_table
 
 
-# def console_print_table(results_df: pd.DataFrame):
-#     # Initiate a Table instance to be modified
-#     table = Table(
-#         show_header=True,
-#         header_style="bold magenta",
-#         box=box.DOUBLE,
-#         expand=True,
-#         show_lines=True,
-#         show_edge=True,
-#         show_footer=True,
-#     )
+def console_print_table(results_df: pd.DataFrame):
+    # Initiate a Table instance to be modified
+    table = Table(
+        show_header=True,
+        header_style="bold magenta",
+        box=box.DOUBLE,
+        expand=True,
+        show_lines=True,
+        show_edge=True,
+        show_footer=True,
+    )
 
-#     # Modify the table instance to have the data from the DataFrame
-#     table = df_to_table(results_df, table)
+    # Modify the table instance to have the data from the DataFrame
+    table = df_to_table(results_df, table)
 
-#     # Update the style of the table
-#     table.row_styles = ["none", "dim"]
-#     table.box = box.SIMPLE_HEAD
+    # Update the style of the table
+    table.row_styles = ["none", "dim"]
+    table.box = box.SIMPLE_HEAD
 
-#     console.print(table)
+    console.print(table)
 
 
 def csv_to_df(path: str):
@@ -1425,7 +1481,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
         train_augs = A.Compose(
             [
-                A.Resize(IMG_SIZE, IMG_SIZE),
+                A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.Rotate(),
@@ -1436,7 +1492,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         )
 
         valid_augs = A.Compose(
-            [A.Resize(IMG_SIZE, IMG_SIZE)],
+            [A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH)],
             bbox_params=A.BboxParams(
                 format="pascal_voc", label_fields=["class_labels"]
             ),
@@ -1475,64 +1531,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         print("Shape of one batch images : {}".format(images.shape))
         print("Shape of one batch bboxes : {}".format(bboxes.shape))
 
-    # -----------------------------
-    # BOSSNEW
-    # Print a summary using torchinfo (uncomment for actual output)
-    # print('Do a summary *before* freezing the features and changing the output classifier layer (uncomment for actual output)')
-    # summary(model=model,
-    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape"
-    #         # col_names=["input_size"], # uncomment for smaller output
-    #         col_names=["input_size", "output_size", "num_params", "trainable"],
-    #         col_width=20,
-    #         row_settings=["var_names"]
-    # )
-
-    # # BOSSNEW
-    # # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    # for param in model.features.parameters():
-    #     param.requires_grad = False
-
-    # # Get the length of class_names (one output unit for each class)
-    # output_shape = len(class_names)
-
-    # # Recreate the classifier layer and seed it to the target device
-    # model.classifier = torch.nn.Sequential(
-    #     torch.nn.Dropout(p=0.2, inplace=True),
-    #     torch.nn.Linear(
-    #         in_features=1280,
-    #         out_features=output_shape,  # same number of output units as our number of classes
-    #         bias=True,
-    #     ),
-    # ).to(device)
-
     ic(next(model.parameters()).device)
 
-    # print('Do a summary *after* freezing the features and changing the output classifier layer (uncomment for actual output)')
-    # summary(model,
-    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
-    #         verbose=0,
-    #         col_names=["input_size", "output_size", "num_params", "trainable"],
-    #         col_width=20,
-    #         row_settings=["var_names"]
-    # )
-
-    # define loss function (criterion), optimizer, and learning rate scheduler
-    # criterion = nn.CrossEntropyLoss().to(device)
-    # Define loss and optimizer
-    # BOSSNEW
-    # loss_fn = nn.CrossEntropyLoss().to(device)
-    # loss_fn = nn.CrossEntropyLoss()
-
-    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    # # define loss function (criterion), optimizer, and learning rate scheduler
-    # # criterion = nn.CrossEntropyLoss().to(device)
-    # # Define loss and optimizer
-    # loss_fn = nn.CrossEntropyLoss().to(device)
-
-    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     if args.weights:
         ic(f"loading weights from -> {args.weights}")
@@ -1623,8 +1624,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             predict_from_file(
                 path_to_image_from_cli,
                 model,
-                # auto_transforms,
-                # class_names,
                 device,
                 args,
             )
@@ -1633,48 +1632,63 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             predict_from_dir(
                 path_to_image_from_cli,
                 model,
-                # auto_transforms,
-                # class_names,
                 device,
                 args,
             )
 
-        sys.exit(0)
+        # sys.exit(0)
 
-    #     if args.worst_first:
-    #         ic(f"Writing worst first | {args.results}")
-    #         results_path = fix_path(args.results)
-    #         results_path_api = pathlib.Path(results_path)
+        if args.worst_first:
+            ic(f"Writing worst first | {args.results}")
+            results_path = fix_path(args.results)
+            results_path_api = pathlib.Path(results_path)
 
-    #         # read csv from disk and write it back
-    #         worst_df = csv_to_df(results_path_api)
-    #         worst_df.sort_values(by=["pred_prob"], ascending=True, inplace=True)
-    #         # Write the DataFrame to a CSV file, overwriting any existing file
-    #         worst_df.to_csv(results_path_api, mode="w", index=False)
+            # read csv from disk and write it back
+            worst_df = csv_to_df(results_path_api)
+            worst_df.sort_values(by=["pred_prob"], ascending=True, inplace=True)
+            # Write the DataFrame to a CSV file, overwriting any existing file
+            worst_df.to_csv(results_path_api, mode="w", index=False)
 
-    #         if args.debug:
-    #             console_print_table(worst_df)
+            if args.debug:
+                console_print_table(worst_df)
 
-    #     return
+        return
 
-    # if args.test:
-    #     print(" Running test command ...")
-    #     test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-    #     pred_dicts = pred_and_store(
-    #         test_data_paths, model, auto_transforms, class_names, device
-    #     )
-    #     pred_df = pd.DataFrame(pred_dicts)
-    #     # breakpoint()
-    #     # pred_df.head()
-    #     console_print_table(pred_df)
-    #     return
+    if args.test:
+        print(" Running test command ...")
+        data = []
+        gt_bboxes_list = []
+        import bpdb
+        stream = tqdm(validloader)
+        for i, (images, gt_bboxes) in enumerate(stream):
+            data[i] = (images[i], gt_bboxes[i])
+        # for data in tqdm(validloader):
+        #     images, gt_bboxes = data
+
+            # print(images, gt_bboxes)
+            # images.shape
+
+        print(len(data))
+        bpdb.set_trace()
+        # image_folder_api = get_image_files(path_to_image_from_cli)
+        # ic(image_folder_api)
+
+        # paths = image_folder_api
+        # test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
+        # pred_dicts = pred_and_store(
+        #     test_data_paths, model, auto_transforms, class_names, device
+        # )
+        # pred_df = pd.DataFrame(pred_dicts)
+        # # breakpoint()
+        # # pred_df.head()
+        # console_print_table(pred_df)
+        return
 
     ic(
         run_train(
             model,
             trainloader,
             validloader,
-            # loss_fn,
             optimizer,
             args.epochs,
             device,
@@ -1702,7 +1716,8 @@ def get_random_perdictions_and_plots(
 
     rand_idx = random.randint(0, (len(validset) - 1))
     ic(rand_idx)
-    with torch.no_grad():
+    # with torch.no_grad():
+    with torch.inference_mode():
         image, gt_bbox = validset[rand_idx]  # (c, h, w)
         image = image.unsqueeze(0).to(device)  # (bs, c, h, w)
         out_bbox = best_model(image)
@@ -1740,7 +1755,6 @@ class Summary(Enum):
     AVERAGE = 1
     SUM = 2
     COUNT = 3
-
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -2138,26 +2152,6 @@ def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
 
-
-# #function to save prediction as an image
-# # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
-# def save_predictions_as_imgs(
-#     loader, model, folder="saved_images/", device="mps"
-# ):
-#     model.eval()
-#     for idx, (x, y) in enumerate(loader):
-#         x = x.to(device=device)
-#         with torch.no_grad():
-#             preds = torch.sigmoid(model(x))
-#             preds = (preds > 0.5).float()
-#         torchvision.utils.save_image(
-#             preds, f"{folder}/pred_{idx}.png"
-#         )
-#         torchvision.utils.save_image(y.unsqueeze(1), f"{folder}{idx}.png")
-
-#     model.train()
-
-
 def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
@@ -2214,15 +2208,51 @@ def pred_and_store(
         # 6. Start the prediction timer
         start_time = timer()
 
+        targetSize = Dimensions.HEIGHT
         # 7. Open image path
         # img = Image.open(path)
         # img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+        img: ImageNdarrayBGR
+        # img_shape: Tuple
+        img_channel: int
+        img_height: int
+        img_width: int
 
-        img: np.ndarray = cv2.imread(f"{paths[0]}")
-        #  convert color image into RGB image
-        img: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img, img_channel, img_height, img_width = read_image_to_bgr(f"{paths[0]}")
 
-        img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
+        # w, h = im.size
+        # pil_img = Image.open(f"{paths[0]}")
+        # resized = pil_img.resize()
+        resized = cv2.resize(img, (targetSize, targetSize))
+        print(resized.shape)
+
+        import bpdb
+        bpdb.set_trace()
+
+        img: torch.Tensor = convert_image_from_hwc_to_chw(resized)
+
+        height_scale = targetSize / img_height
+        width_scale = targetSize / img_width
+
+        print(height_scale, width_scale)
+
+        # transform image in memory
+
+        # img_channel, img_height, img_width = img_shape[0], img_shape[1], img_shape[2]
+        # img: np.ndarray = cv2.imread(f"{paths[0]}")
+        # #  convert color image into RGB image
+        # img: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # transform = A.Compose([
+        #     A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH)
+        # ], bbox_params=A.BboxParams(format='pascal_voc', label_fields = ['class_labels']))
+
+        # data = transform(image = img, bboxes = bbox, class_labels=[None])
+
+
+
+
+        # img: torch.Tensor = torch.from_numpy(img).permute(2, 0, 1) / 255.0  # (h,w,c) -> (c,h,w)
 
         # 8. Transform the image, add batch dimension and put image on target device
         # transformed_image = transform(img).unsqueeze(dim=0).to(device)
@@ -2260,7 +2290,11 @@ def pred_and_store(
             plt.imshow(bnd_img)
             # if to_disk:
             # # plt.imsave(fname, img_as_array)
-            plt.savefig("plot.png")
+
+            image_path_api = pathlib.Path(path).resolve()
+            plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+
+            plt.savefig(plot_fname)
             # end_time = timer()
             # pred_dict["time_for_pred"] = round(end_time - start_time, 4)
             # compare_plots(image, gt_bbox, out_bbox)
