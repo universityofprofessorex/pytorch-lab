@@ -2,7 +2,7 @@ train:
 	python main.py --to-disk --debug --interactive --epochs 10
 
 pylint:
-	pylint --enable F,E --rcfile ../lint-configs-python/python/pylintrc main.py
+	pylint --enable F,E --output-format=colorized --disable=all --rcfile ../lint-configs-python/python/pylintrc main.py
 
 mypy:
 	mypy --follow-imports=silent --ignore-missing-imports --show-column-numbers --no-pretty main.py

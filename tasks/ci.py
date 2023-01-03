@@ -139,10 +139,7 @@ def mypy(ctx, loc="local", verbose=0):
 
 
 @task(
-    pre=[
-        call(clean, loc="local"),
-    ],
-    incrementable=["verbose"],
+    pre=[call(clean, loc="local"),], incrementable=["verbose"],
 )
 def black(ctx, loc="local", check=False, debug=False, verbose=0, tests=False):
     """
@@ -180,10 +177,7 @@ def black(ctx, loc="local", check=False, debug=False, verbose=0, tests=False):
 
 
 @task(
-    pre=[
-        call(clean, loc="local"),
-    ],
-    incrementable=["verbose"],
+    pre=[call(clean, loc="local"),], incrementable=["verbose"],
 )
 def setup_cfg_fmt(ctx, loc="local", check=False, debug=False, verbose=0, tests=False):
     """
@@ -210,10 +204,7 @@ def setup_cfg_fmt(ctx, loc="local", check=False, debug=False, verbose=0, tests=F
 
 
 @task(
-    pre=[
-        call(clean, loc="local"),
-    ],
-    incrementable=["verbose"],
+    pre=[call(clean, loc="local"),], incrementable=["verbose"],
 )
 def isort(ctx, loc="local", check=False, dry_run=False, verbose=0, diff=False):
     """
@@ -456,10 +447,7 @@ def view_api_docs(ctx, loc="local"):
 
 @task(
     incrementable=["verbose"],
-    pre=[
-        call(view_api_docs, loc="local"),
-        call(view_coverage, loc="local"),
-    ],
+    pre=[call(view_api_docs, loc="local"), call(view_coverage, loc="local"),],
 )
 def browser(ctx, loc="local"):
     """
@@ -656,10 +644,7 @@ def autoflake(
 
 
 @task(
-    pre=[
-        call(clean, loc="local"),
-        call(verify_python_version, loc="local"),
-    ],
+    pre=[call(clean, loc="local"), call(verify_python_version, loc="local"),],
     incrementable=["verbose"],
     aliases=["clean_stubs", "clean_monkeytype"],
 )

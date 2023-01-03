@@ -14,6 +14,8 @@ dependencies:
   - torchtext
   - torchvision
   - fastai=2.7.10
+  - albumentations=1.3.0
+  - timm
   # - nomkl
 
   # # I suggest to keep the other deps sorted for convenience.

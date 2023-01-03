@@ -92,10 +92,7 @@ LABEL_LIST_FROM_FOLDER = [
 ]
 LABEL_LIST_FROM_FOLDER.append("no")
 
-NAME_COMPLETER = WordCompleter(
-    LABEL_LIST_FROM_FOLDER,
-    ignore_case=True,
-)
+NAME_COMPLETER = WordCompleter(LABEL_LIST_FROM_FOLDER, ignore_case=True,)
 
 YES_NO_COMPLETER = WordCompleter(
     ["No", "Right", "Left", "Full", "Stop"], ignore_case=True

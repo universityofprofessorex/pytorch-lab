@@ -5,6 +5,8 @@
 # import pdb
 # pdb = pdb.pdb
 
+import random
+import socket
 import os
 import os.path
 import pathlib
@@ -39,11 +41,12 @@ import rich
 import torch
 import torchvision
 
-# from rich.traceback import install
+from rich.traceback import install
 
-# install(show_locals=True)
+install(show_locals=True)
 from icecream import ic
 from rich import box, inspect, print
+
 from rich.console import Console
 from rich.table import Table
 from torchvision import datasets, transforms
@@ -133,20 +136,220 @@ import torch.profiler
 import fastai
 from fastai.data.transforms import get_image_files
 import torchvision.transforms.functional as pytorch_transforms_functional
+import cv2
+
+import pandas as pd
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+import torch
+from tqdm.notebook import tqdm
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from data_set import ObjLocDataset
+import albumentations as A
+from arch import ObjLocModel
+from enum import IntEnum
+
+from ml_types import ImageNdarrayBGR, ImageNdarrayHWC
+
+import torchvision.transforms.functional as FT
+from PIL import Image
+from typing import Union
+
+
+CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv"
+DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
+
+BATCH_SIZE = 16
+IMG_SIZE = 140
+
+
+class Dimensions(IntEnum):
+    # HEIGHT = 2532
+    # WIDTH = 1170
+    HEIGHT = 140
+    WIDTH = 140
+
+
+LR = 0.001
+EPOCHS = 40
+# MODEL_NAME = 'efficientnet_b0'
+
+NUM_COR = 4
+
+NUM_WORKERS = os.cpu_count()
+
 
 # SOURCE: https://github.com/pytorch/pytorch/issues/78924
 torch.set_num_threads(1)
 
-# SOURCE: https://github.com/pytorch/vision/blob/main/references/classification/train.py
-def _get_cache_path(filepath):
-    import hashlib
+MODEL_NAME = "ScreenCropNetV1"
+DATASET_FOLDER_NAME = "twitter_screenshots_localization_dataset"
+CONFIG_IMAGE_SIZE = (224, 224)
 
-    h = hashlib.sha1(filepath.encode()).hexdigest()
-    cache_path = os.path.join(
-        "~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt"
+OPENCV_GREEN = (0, 255, 0)
+OPENCV_RED = (255, 0, 0)
+
+# --------------------------------------------------------------------------------
+# SOURCE FOR THIS ENTIRE BLOCK
+# SOURCE: https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py
+def xy_to_cxcy(xy):
+    """
+    Convert bounding boxes from boundary coordinates (x_min, y_min, x_max, y_max) to center-size coordinates (c_x, c_y, w, h).
+    :param xy: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
+    :return: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
+    """
+    return torch.cat(
+        [(xy[:, 2:] + xy[:, :2]) / 2, xy[:, 2:] - xy[:, :2]], 1  # c_x, c_y
+    )  # w, h
+
+
+def cxcy_to_xy(cxcy):
+    """
+    Convert bounding boxes from center-size coordinates (c_x, c_y, w, h) to boundary coordinates (x_min, y_min, x_max, y_max).
+    :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
+    :return: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
+    """
+    return torch.cat(
+        [
+            cxcy[:, :2] - (cxcy[:, 2:] / 2),  # x_min, y_min
+            cxcy[:, :2] + (cxcy[:, 2:] / 2),
+        ],
+        1,
+    )  # x_max, y_max
+
+
+def cxcy_to_gcxgcy(cxcy, priors_cxcy):
+    """
+    Encode bounding boxes (that are in center-size form) w.r.t. the corresponding prior boxes (that are in center-size form).
+    For the center coordinates, find the offset with respect to the prior box, and scale by the size of the prior box.
+    For the size coordinates, scale by the size of the prior box, and convert to the log-space.
+    In the model, we are predicting bounding box coordinates in this encoded form.
+    :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_priors, 4)
+    :param priors_cxcy: prior boxes with respect to which the encoding must be performed, a tensor of size (n_priors, 4)
+    :return: encoded bounding boxes, a tensor of size (n_priors, 4)
+    """
+
+    # The 10 and 5 below are referred to as 'variances' in the original Caffe repo, completely empirical
+    # They are for some sort of numerical conditioning, for 'scaling the localization gradient'
+    # See https://github.com/weiliu89/caffe/issues/155
+    return torch.cat(
+        [
+            (cxcy[:, :2] - priors_cxcy[:, :2])
+            / (priors_cxcy[:, 2:] / 10),  # g_c_x, g_c_y
+            torch.log(cxcy[:, 2:] / priors_cxcy[:, 2:]) * 5,
+        ],
+        1,
+    )  # g_w, g_h
+
+
+def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
+    """
+    Decode bounding box coordinates predicted by the model, since they are encoded in the form mentioned above.
+    They are decoded into center-size coordinates.
+    This is the inverse of the function above.
+    :param gcxgcy: encoded bounding boxes, i.e. output of the model, a tensor of size (n_priors, 4)
+    :param priors_cxcy: prior boxes with respect to which the encoding is defined, a tensor of size (n_priors, 4)
+    :return: decoded bounding boxes in center-size form, a tensor of size (n_priors, 4)
+    """
+
+    return torch.cat(
+        [
+            gcxgcy[:, :2] * priors_cxcy[:, 2:] / 10 + priors_cxcy[:, :2],  # c_x, c_y
+            torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:],
+        ],
+        1,
+    )  # w, h
+
+
+def resize_image_and_bbox(
+    image: torch.Tensor,
+    boxes: torch.Tensor,
+    dims=(300, 300),
+    return_percent_coords=False,
+    device: torch.device = None,
+):
+    """
+    Resize image. For the SSD300, resize to (300, 300).
+    Since percent/fractional coordinates are calculated for the bounding boxes (w.r.t image dimensions) in this process,
+    you may choose to retain them.
+    :param image: image, a PIL Image
+    :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
+    :return: resized image, updated bounding box coordinates (or fractional coordinates, in which case they remain the same)
+    """
+
+    image_tensor_to_resize_height = image.shape[1]
+    image_tensor_to_resize_width = image.shape[2]
+
+    # Resize image
+    new_image = FT.resize(image, dims)
+
+    # Resize bounding boxes
+    old_dims = (
+        torch.FloatTensor(
+            [
+                image_tensor_to_resize_width,
+                image_tensor_to_resize_height,
+                image_tensor_to_resize_width,
+                image_tensor_to_resize_height,
+            ]
+        )
+        .unsqueeze(0)
+        .to(device)
     )
-    cache_path = os.path.expanduser(cache_path)
-    return cache_path
+    new_boxes = boxes / old_dims  # percent coordinates
+
+    if not return_percent_coords:
+        new_dims = (
+            torch.FloatTensor([dims[1], dims[0], dims[1], dims[0]])
+            .unsqueeze(0)
+            .to(device)
+        )
+        new_boxes = new_boxes * new_dims
+
+    return new_image, new_boxes
+
+
+# --------------------------------------------------------------------------------
+
+
+def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
+    rows = len(images_filepaths) // cols
+    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    for i, image_filepath in enumerate(images_filepaths):
+        image = cv2.imread(image_filepath)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # true_label = os.path.normpath(image_filepath).split(os.sep)[-2]
+        # predicted_label = predicted_labels[i] if predicted_labels else true_label
+        # color = "green" if true_label == predicted_label else "red"
+        color = "green"
+        ax.ravel()[i].imshow(image)
+        ax.ravel()[i].set_title(image_filepath, color=color)
+        ax.ravel()[i].set_axis_off()
+    plt.tight_layout()
+    plt.show()
+
+
+# SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
+def compare_plots(image, gt_bbox, out_bbox):
+
+    xmin, ymin, xmax, ymax = gt_bbox
+
+    pt1 = (int(xmin), int(ymin))
+    pt2 = (int(xmax), int(ymax))
+
+    out_xmin, out_ymin, out_xmax, out_ymax = out_bbox[0]
+
+    out_pt1 = (int(out_xmin), int(out_ymin))
+    out_pt2 = (int(out_xmax), int(out_ymax))
+
+    out_img = cv2.rectangle(
+        image.squeeze().permute(1, 2, 0).cpu().numpy(), pt1, pt2, OPENCV_GREEN, 2
+    )
+    out_img = cv2.rectangle(out_img, out_pt1, out_pt2, OPENCV_RED, 2)
+    plt.imshow(out_img)
 
 
 def get_pil_image_channels(image_path: str) -> int:
@@ -184,6 +387,36 @@ def convert_pil_image_to_rgb_channels(image_path: str):
         return pil_image
 
 
+def read_image_to_bgr(image_path: str) -> ImageNdarrayBGR:
+    """Read the image from image id.
+
+    returns ImageNdarrayBGR.
+
+    Opencv returns ndarry in format = row (height) x column (width) x color (3)
+    """
+
+    # image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+    # image /= 255.0  # Normalize
+
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # import bpdb
+    # bpdb.set_trace()
+    # img_shape = image.shape
+    img_channel = image.shape[2]
+    img_height = image.shape[0]
+    img_width = image.shape[1]
+    return image, img_channel, img_height, img_width
+
+
+def convert_image_from_hwc_to_chw(img: ImageNdarrayBGR) -> torch.Tensor:
+    img: torch.Tensor = (
+        torch.from_numpy(img).permute(2, 0, 1) / 255.0
+    )  # (h,w,c) -> (c,h,w)
+    return img
+
+
 # convert image back and forth if needed: https://stackoverflow.com/questions/68207510/how-to-use-torchvision-io-read-image-with-image-as-variable-not-stored-file
 def convert_pil_image_to_torch_tensor(pil_image: Image) -> torch.Tensor:
     """Convert PIL image to pytorch tensor
@@ -213,8 +446,8 @@ def convert_tensor_to_pil_image(tensor_image: torch.Tensor) -> Image:
 def predict_from_dir(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
-    transforms: torchvision.transforms,
-    class_names: List[str],
+    # transforms: torchvision.transforms,
+    # class_names: List[str],
     device: torch.device,
     args: argparse.Namespace,
 ):
@@ -236,15 +469,18 @@ def predict_from_dir(
 
     for paths_item in paths:
         predict_from_file(
-            paths_item, model, transforms, class_names, device, args,
+            paths_item,
+            model,
+            # transforms,
+            # class_names,
+            device,
+            args,
         )
 
 
 def predict_from_file(
     path_to_image_from_cli: str,
     model: torch.nn.Module,
-    transforms: torchvision.transforms,
-    class_names: List[str],
     device: torch.device,
     args: argparse.Namespace,
 ):
@@ -266,27 +502,9 @@ def predict_from_file(
     paths.append(image_path_api)
 
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
+    # img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
 
-    pred_dicts = pred_and_store(paths, model, transforms, class_names, device)
-
-    if args.to_disk and args.results != "":
-        write_predict_results_to_csv(pred_dicts, args)
-
-    image_class = pred_dicts[0]["pred_class"]
-    image_pred_prob = pred_dicts[0]["pred_prob"]
-    image_time_for_pred = pred_dicts[0]["time_for_pred"]
-
-    # 5. Print metadata
-    print(f"Random image path: {paths[0]}")
-    print(f"Image class: {image_class}")
-    print(f"Image pred prob: {image_pred_prob}")
-    print(f"Image pred time: {image_time_for_pred}")
-    print(f"Image height: {img.height}")
-    print(f"Image width: {img.width}")
-
-    # print prediction info to rich table
-    pred_df = pd.DataFrame(pred_dicts)
-    console_print_table(pred_df)
+    bboxes = pred_and_store(paths, model, device)
 
     plot_fname = (
         f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
@@ -294,7 +512,7 @@ def predict_from_file(
 
     from_pil_image_to_plt_display(
         img,
-        pred_dicts,
+        bboxes,
         to_disk=args.to_disk,
         interactive=args.interactive,
         fname=plot_fname,
@@ -388,7 +606,7 @@ def fix_path(path: str):
 
 def from_pil_image_to_plt_display(
     img: Image,
-    pred_dicts: List[Dict],
+    bboxes: torch.Tensor,
     to_disk: bool = True,
     interactive: bool = True,
     fname: str = "plot.png",
@@ -401,28 +619,43 @@ def from_pil_image_to_plt_display(
         to_disk (bool, optional): _description_. Defaults to True.
         interactive (bool, optional): _description_. Defaults to True.
     """
+
+    MODEL_PATH = Path("results")
+    MODEL_PATH.mkdir(
+        parents=True,  # create parent directories if needed
+        exist_ok=True,  # if models directory already exists, don't error
+    )
+
     # Turn the image into an array
     img_as_array = np.asarray(img)
 
-    image_class = pred_dicts[0]["pred_class"]
-    image_pred_prob = pred_dicts[0]["pred_prob"]
-    image_time_for_pred = pred_dicts[0]["time_for_pred"]
+    # get fullsize bboxes
+    xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
 
-    if interactive:
-        plt.ion()
+    pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+    pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
+
+    starting_point_fullsize = pt1_fullsize
+    end_point_fullsize = pt2_fullsize
+    color = OPENCV_RED
+    thickness = 1
+
+    out_img = cv2.rectangle(
+        img_as_array, starting_point_fullsize, end_point_fullsize, color, thickness
+    )
 
     # Plot the image with matplotlib
     plt.figure(figsize=(10, 7))
-    plt.imshow(img_as_array)
+    plt.imshow(out_img)
     title_font_dict = {"fontsize": "10"}
     plt.title(
-        f"Image class: {image_class} | Image Pred Prob: {image_pred_prob} | Prediction time: {image_time_for_pred} | Image shape: {img_as_array.shape} -> [height, width, color_channels]",
+        f"pt1: {pt1_fullsize} | pt2: {pt2_fullsize}",
         fontdict=title_font_dict,
     )
     plt.axis(False)
+    plt.show()
 
     if to_disk:
-        # plt.imsave(fname, img_as_array)
         plt.savefig(fname)
 
 
@@ -638,9 +871,9 @@ def run_validate(
 
 def run_train(
     model: torch.nn.Module,
-    train_dataloader: torch.utils.data.DataLoader,
-    test_dataloader: torch.utils.data.DataLoader,
-    loss_fn: torch.nn.Module,
+    trainloader: torch.utils.data.DataLoader,
+    validloader: torch.utils.data.DataLoader,
+    # loss_fn: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     epochs: int,
     device: torch.device,
@@ -648,91 +881,91 @@ def run_train(
 ):
     print("No other options selected so we are training this model....")
     # ic(model)
-    ic(train_dataloader)
-    ic(test_dataloader)
-    ic(loss_fn)
+    ic(trainloader)
+    ic(validloader)
+    # ic(loss_fn)
     ic(optimizer)
     ic(epochs)
     ic(device)
 
     start_time = timer()
 
-    # # Create an example writer
-    # example_writer = create_writer(
-    #     experiment_name="basic", model_name="effnetb0", extra="5_epochs"
-    # )
-
     dataloader_name = "basic"
     ic(dataloader_name)
 
     # Setup training and save the results
-    results = engine.train(
+    results = engine.train_localization(
         model=model,
-        train_dataloader=train_dataloader,
-        test_dataloader=test_dataloader,
+        trainloader=trainloader,
+        validloader=validloader,
         optimizer=optimizer,
-        loss_fn=loss_fn,
+        # loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        writer=create_writer(
-            experiment_name=dataloader_name,
-            model_name=model.name,
-            extra=f"{epochs}_epochs",
-        ),
+        # writer=create_writer(
+        #     experiment_name=dataloader_name,
+        #     model_name=model.name,
+        #     extra=f"{epochs}_epochs",
+        # ),
     )
 
     # End the timer and print out how long it took
     end_time = timer()
-    # print(f"[INFO] Total training time: {end_time-start_time:.3f} seconds")
+
+    machine = f"{socket.gethostname()}"
+
     # Print out timer and results
     total_train_time = print_train_time(
-        start=start_time, end=end_time, device=device, machine="silicontop"
+        start=start_time, end=end_time, device=device, machine=machine
     )
 
     # 10. Save the model to file so we can get back the best model
-    save_filepath = f"ScreenNet_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+    save_filepath = f"{MODEL_NAME}_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
     utils.save_model(model=model, target_dir="models", model_name=save_filepath)
     print("-" * 50 + "\n")
 
-    dataset_name = "twitter_facebook_tiktok"
+    dataset_name = DATASET_FOLDER_NAME
 
-    write_training_results_to_csv(
-        "silicontop",
-        device,
-        dataset_name=dataset_name,
-        num_epochs=epochs,
-        batch_size=batch_size,
-        image_size=(224, 224),
-        train_data=train_dataloader.dataset,
-        test_data=test_dataloader.dataset,
-        total_train_time=total_train_time,
-        model=model,
-    )
+    # write_training_results_to_csv(
+    #     machine,
+    #     device,
+    #     dataset_name=dataset_name,
+    #     num_epochs=epochs,
+    #     batch_size=batch_size,
+    #     image_size=CONFIG_IMAGE_SIZE,
+    #     train_data=trainloader.dataset,
+    #     test_data=validloader.dataset,
+    #     total_train_time=total_train_time,
+    #     model=model,
+    # )
 
-    results_df = inspect_csv_results()
-    ic("Plot performance benchmarks")
-    # Get names of devices
-    machine_and_device_list = [
-        row[1][0] + " (" + row[1][1] + ")"
-        for row in results_df[["machine", "device"]].iterrows()
-    ]
+    # # -------------------------------------------------
+    # # DISABLED
+    # # -------------------------------------------------
+    # results_df = inspect_csv_results()
+    # ic("Plot performance benchmarks")
+    # # Get names of devices
+    # machine_and_device_list = [
+    #     row[1][0] + " (" + row[1][1] + ")"
+    #     for row in results_df[["machine", "device"]].iterrows()
+    # ]
 
-    # Plot and save figure
-    plt.figure(figsize=(10, 7))
-    plt.style.use("fivethirtyeight")
-    plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
-    plt.title(
-        f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {(224, 224)}",
-        size=16,
-    )
-    plt.xlabel("Machine (device)", size=14)
-    plt.ylabel("Seconds per epoch (lower is better)", size=14)
-    save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{(224, 224)[0]}.png"
-    print(f"Saving figure to '{save_path}'")
-    plt.savefig(save_path)
+    # # Plot and save figure
+    # plt.figure(figsize=(10, 7))
+    # plt.style.use("fivethirtyeight")
+    # plt.bar(machine_and_device_list, height=results_df.time_per_epoch)
+    # plt.title(
+    #     f"PyTorch ScreenNetV1 Training on {dataset_name} with batch size {batch_size} and image size {CONFIG_IMAGE_SIZE}",
+    #     size=16,
+    # )
+    # plt.xlabel("Machine (device)", size=14)
+    # plt.ylabel("Seconds per epoch (lower is better)", size=14)
+    # save_path = f"results/{model.__class__.__name__}_{dataset_name}_benchmark_with_batch_size_{batch_size}_image_size_{CONFIG_IMAGE_SIZE[0]}.png"
+    # print(f"Saving figure to '{save_path}'")
+    # plt.savefig(save_path)
 
-    ic("Plot the loss curves of our model")
-    plot_loss_curves(results, to_disk=True)
+    # ic("Plot the loss curves of our model")
+    # plot_loss_curves(results, to_disk=True)
 
 
 # SOURCE: https://github.com/mrdbourke/pytorch-apple-silicon/blob/main/01_cifar10_tinyvgg.ipynb
@@ -850,20 +1083,8 @@ def inspect_csv_results():
     for path in results_paths:
         df_list.append(pd.read_csv(path))
     results_df = pd.concat(df_list).reset_index(drop=True)
-    # prettify(results_df)
 
-    # # Initiate a Table instance to be modified
-    # table = Table(show_header=True, header_style="bold magenta")
-
-    # # Modify the table instance to have the data from the DataFrame
-    # table = df_to_table(results_df, table)
-
-    # # Update the style of the table
-    # table.row_styles = ["none", "dim"]
-    # table.box = box.SIMPLE_HEAD
-
-    # console.print(table)
-    console_print_table(results_df)
+    # console_print_table(results_df)
     return results_df
 
 
@@ -902,16 +1123,6 @@ def clean_dirs_in_dir(image_path):
 
 def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath):
 
-    # Setup path to data folder
-    # data_path = Path("data/")
-    # image_path = data_path / "twitter_facebook_tiktok"
-
-    # NOTE: Use this if you need to delete folders again
-    # clean_dir_images(image_path)
-    # clean_dirs_in_dir(image_path)
-    # os.rmdir(image_path)
-    # os.unlink("data/twitter_facebook_tiktok.zip")
-
     # If the image folder doesn't exist, download it and prepare it...
     if image_path.is_dir():
         print(f"{image_path} directory exists.")
@@ -920,15 +1131,19 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
         image_path.mkdir(parents=True, exist_ok=True)
 
         # Download twitter, facebook, tiktok data
-        with open(data_path / "twitter_facebook_tiktok.zip", "wb") as f:
+        with open(
+            data_path / "twitter_screenshots_localization_dataset.zip", "wb"
+        ) as f:
             request = requests.get(
-                "https://www.dropbox.com/s/8w1jkcvdzmh7khh/twitter_facebook_tiktok.zip?dl=1"
+                "https://www.dropbox.com/s/w5rzn8b1s0p9d2n/twitter_screenshots_localization_dataset.zip?dl=1"
             )
-            print("Downloading twitter, facebook, tiktok data...")
+            print("Downloading twitter localization data data...")
             f.write(request.content)
 
         # Unzip twitter, facebook, tiktok data
-        with zipfile.ZipFile(data_path / "twitter_facebook_tiktok.zip", "r") as zip_ref:
+        with zipfile.ZipFile(
+            data_path / "twitter_screenshots_localization_dataset.zip", "r"
+        ) as zip_ref:
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
@@ -1009,8 +1224,15 @@ model_names = sorted(
 
 shared_datasets_path_api = pathlib.Path(os.path.expanduser("~/Downloads/datasets"))
 shared_datasets_path = os.path.abspath(str(shared_datasets_path_api))
-# print(f"shared_datasets_path - {shared_datasets_path}")
 DEFAULT_DATASET_DIR = Path(f"{shared_datasets_path}")
+
+
+CSV_FILE_PATH_API = pathlib.Path(
+    os.path.expanduser(f"~/Downloads/datasets/{DATASET_FOLDER_NAME}")
+)
+CSV_FILE_PATH = os.path.abspath(str(CSV_FILE_PATH_API))
+CSV_FILE = f"{CSV_FILE_PATH}/labels_pascal_temp.csv"
+IMAGE_DATASET_DIR_PATH = f"{CSV_FILE_PATH}/train_images"
 
 # --------------------------------------------------------------------------------------------
 
@@ -1123,10 +1345,16 @@ parser.add_argument(
     help="evaluate model on validation set",
 )
 parser.add_argument(
-    "--test", dest="test", action="store_true", help="test model on validation set",
+    "--test",
+    dest="test",
+    action="store_true",
+    help="test model on validation set",
 )
 parser.add_argument(
-    "--info", dest="info", action="store_true", help="info about this build",
+    "--info",
+    dest="info",
+    action="store_true",
+    help="info about this build",
 )
 parser.add_argument(
     "--download-and-predict",
@@ -1164,7 +1392,10 @@ parser.add_argument(
     help="write files to disk",
 )
 parser.add_argument(
-    "--summary", dest="summary", action="store_true", help="Get model summary output",
+    "--summary",
+    dest="summary",
+    action="store_true",
+    help="Get model summary output",
 )
 parser.add_argument(
     "--worst-first",
@@ -1210,21 +1441,9 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
     ic(args)
-    # rich.inspect(args)
 
     if args.seed is not None:
         validate_seed(args.seed)
-        # random.seed(args.seed)
-        # torch.manual_seed(args.seed)
-        # cudnn.deterministic = True
-        # cudnn.benchmark = False
-        # warnings.warn(
-        #     "You have chosen to seed training. "
-        #     "This will turn on the CUDNN deterministic setting, "
-        #     "which can slow down your training considerably! "
-        #     "You may see unexpected behavior when restarting "
-        #     "from checkpoints."
-        # )
 
     if args.gpu is not None:
         warnings.warn(
@@ -1281,18 +1500,20 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         ic("=> using pre-trained model '{}'".format(args.arch))
         # breakpoint()
         device = devices.get_optimal_device(args)
-        # models.__dict__[args.model_weights].DEFAULT = device
-        weights = models.__dict__[args.model_weights].DEFAULT
-        auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch](weights=weights).to(device)
-        model.name = args.arch
+
+        # weights = models.__dict__[args.model_weights].DEFAULT
+        # auto_transforms = weights.transforms()
+        # model = models.__dict__[args.arch](weights=weights).to(device)
+        model = ObjLocModel()
+        model.name = "ObjLocModelV1"
+        model.to(device)
     else:
         ic("=> creating model '{}'".format(args.arch))
-        # breakpoint()
-        # weights = models.__dict__[args.model_weights].DEFAULT.to(device)
-        # auto_transforms = weights.transforms()
-        model = models.__dict__[args.arch]()
-        model.name = args.arch
+        device = devices.get_optimal_device(args)
+        model = ObjLocModel()
+        model.name = "ObjLocModelV1"
+        # model.init_weights(args)
+        model.to(device)
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         ic("using CPU, this will be slow")
@@ -1359,96 +1580,99 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         )
     else:
 
-        # Setup path to data folder
-        data_path = Path(args.data)
-        image_path = data_path / "twitter_facebook_tiktok"
-        train_dir = image_path / "train"
-        test_dir = image_path / "test"
+        df_dataset = pd.read_csv(CSV_FILE)
 
-        train_dataloader: torch.utils.data.DataLoader
-        test_dataloader: torch.utils.data.DataLoader
-        class_names: List[str]
-
-        train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
-            train_dir=train_dir,
-            test_dir=test_dir,
-            transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
-            batch_size=args.batch_size,
-            pin_memory=True,
-        )  # set mini-batch size to 32
-
-        # get datasets for confusion matrix
-        # Use ImageFolder to create dataset(s)
-        train_dataset = train_data = datasets.ImageFolder(
-            train_dir, transform=auto_transforms
-        )
-        val_dataset = test_data = datasets.ImageFolder(
-            test_dir, transform=auto_transforms
+        train_df, valid_df = train_test_split(
+            df_dataset, test_size=0.20, random_state=42
         )
 
-    # -----------------------------
-    # BOSSNEW
-    # Print a summary using torchinfo (uncomment for actual output)
-    # print('Do a summary *before* freezing the features and changing the output classifier layer (uncomment for actual output)')
-    # summary(model=model,
-    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape"
-    #         # col_names=["input_size"], # uncomment for smaller output
-    #         col_names=["input_size", "output_size", "num_params", "trainable"],
-    #         col_width=20,
-    #         row_settings=["var_names"]
-    # )
+        # # Setup path to data folder
+        # data_path = Path(args.data)
+        # image_path = data_path / "twitter_screenshots_localization_dataset"
+        # train_dir = image_path / "train_images"
+        # test_dir = image_path / "test"
 
-    # BOSSNEW
-    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    for param in model.features.parameters():
-        param.requires_grad = False
+        # train_dataloader: torch.utils.data.DataLoader
+        # test_dataloader: torch.utils.data.DataLoader
+        # class_names: List[str]
 
-    # Get the length of class_names (one output unit for each class)
-    output_shape = len(class_names)
+        # train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
+        #     train_dir=train_dir,
+        #     test_dir=test_dir,
+        #     transform=auto_transforms,  # perform same data transforms on our own data as the pretrained model
+        #     batch_size=args.batch_size,
+        #     pin_memory=True,
+        # )  # set mini-batch size to 32
 
-    # Recreate the classifier layer and seed it to the target device
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=0.2, inplace=True),
-        torch.nn.Linear(
-            in_features=1280,
-            out_features=output_shape,  # same number of output units as our number of classes
-            bias=True,
-        ),
-    ).to(device)
+        # # get datasets for confusion matrix
+        # # Use ImageFolder to create dataset(s)
+        # train_dataset = train_data = datasets.ImageFolder(
+        #     train_dir, transform=auto_transforms
+        # )
+        # val_dataset = test_data = datasets.ImageFolder(
+        #     test_dir, transform=auto_transforms
+        # )
+
+        train_augs = A.Compose(
+            [
+                A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.Rotate(),
+            ],
+            bbox_params=A.BboxParams(
+                format="pascal_voc", label_fields=["class_labels"]
+            ),
+        )
+
+        valid_augs = A.Compose(
+            [A.Resize(Dimensions.HEIGHT, Dimensions.WIDTH)],
+            bbox_params=A.BboxParams(
+                format="pascal_voc", label_fields=["class_labels"]
+            ),
+        )
+
+        trainset: ObjLocDataset = ObjLocDataset(
+            train_df, transform=train_augs, root_dir=f"{DATA_DIR}"
+        )
+        validset: ObjLocDataset = ObjLocDataset(
+            valid_df, transform=valid_augs, root_dir=f"{DATA_DIR}"
+        )
+
+        print(
+            f"Total examples in the trainset: {len(trainset)} validset: {len(validset)}"
+        )
+
+        # trainloader = torch.utils.data.dataloader.DataLoader(
+        #     trainset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True
+        # )
+        # validloader = torch.utils.data.dataloader.DataLoader(
+        #     trainset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True
+        # )
+        trainloader = torch.utils.data.dataloader.DataLoader(
+            trainset, batch_size=BATCH_SIZE, shuffle=True
+        )
+        validloader = torch.utils.data.dataloader.DataLoader(
+            trainset, batch_size=BATCH_SIZE, shuffle=False
+        )
+
+        print("Total no. batches in trainloader : {}".format(len(trainloader)))
+        print("Total no. batches in validloader : {}".format(len(validloader)))
+
+        for images, bboxes in trainloader:
+            break
+
+        print("Shape of one batch images : {}".format(images.shape))
+        print("Shape of one batch bboxes : {}".format(bboxes.shape))
 
     ic(next(model.parameters()).device)
 
-    # print('Do a summary *after* freezing the features and changing the output classifier layer (uncomment for actual output)')
-    # summary(model,
-    #         input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape" (batch_size, color_channels, height, width)
-    #         verbose=0,
-    #         col_names=["input_size", "output_size", "num_params", "trainable"],
-    #         col_width=20,
-    #         row_settings=["var_names"]
-    # )
-
-    # define loss function (criterion), optimizer, and learning rate scheduler
-    # criterion = nn.CrossEntropyLoss().to(device)
-    # Define loss and optimizer
-    # BOSSNEW
-    # loss_fn = nn.CrossEntropyLoss().to(device)
-    loss_fn = nn.CrossEntropyLoss()
-
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    # # define loss function (criterion), optimizer, and learning rate scheduler
-    # # criterion = nn.CrossEntropyLoss().to(device)
-    # # Define loss and optimizer
-    # loss_fn = nn.CrossEntropyLoss().to(device)
-
-    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     if args.weights:
         ic(f"loading weights from -> {args.weights}")
         # loaded_model: nn.Module
-        model = run_get_model_for_inference(
-            model, device, class_names, args.weights, args
-        )
+        model = run_get_model_for_inference(model, device, args.weights, args)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -1486,7 +1710,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         val_sampler = None
 
     if args.info:
-        info(args, dataset_root_dir=image_path)
+        info(args, dataset_root_dir=IMAGE_DATASET_DIR_PATH)
         return
 
     if args.summary:
@@ -1509,21 +1733,21 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
         return
 
-    if args.evaluate:
-        # validate(val_loader, model, criterion, args)
-        ic(run_validate(model, test_dataloader, device, loss_fn))
-        return
+    # if args.evaluate:
+    #     # validate(val_loader, model, criterion, args)
+    #     ic(run_validate(model, test_dataloader, device, loss_fn))
+    #     return
 
-    if args.download_and_predict:
-        print(" Running download and predict command ...")
-        download_and_predict(
-            args.download_and_predict,
-            model,
-            Path(args.data),
-            class_names=class_names,
-            device=device,
-        )
-        return
+    # if args.download_and_predict:
+    #     print(" Running download and predict command ...")
+    #     download_and_predict(
+    #         args.download_and_predict,
+    #         model,
+    #         Path(args.data),
+    #         class_names=class_names,
+    #         device=device,
+    #     )
+    #     return
 
     if args.predict:
         print(" Running predict command ...")
@@ -1534,8 +1758,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             predict_from_file(
                 path_to_image_from_cli,
                 model,
-                auto_transforms,
-                class_names,
                 device,
                 args,
             )
@@ -1544,11 +1766,11 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             predict_from_dir(
                 path_to_image_from_cli,
                 model,
-                auto_transforms,
-                class_names,
                 device,
                 args,
             )
+
+        # sys.exit(0)
 
         if args.worst_first:
             ic(f"Writing worst first | {args.results}")
@@ -1568,22 +1790,39 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.test:
         print(" Running test command ...")
-        test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-        pred_dicts = pred_and_store(
-            test_data_paths, model, auto_transforms, class_names, device
-        )
-        pred_df = pd.DataFrame(pred_dicts)
-        # breakpoint()
-        # pred_df.head()
-        console_print_table(pred_df)
+        data = []
+        gt_bboxes_list = []
+        # import bpdb
+        stream = tqdm(validloader)
+        for i, (images, gt_bboxes) in enumerate(stream):
+            data[i] = (images[i], gt_bboxes[i])
+        # for data in tqdm(validloader):
+        #     images, gt_bboxes = data
+
+        # print(images, gt_bboxes)
+        # images.shape
+
+        print(len(data))
+        # bpdb.set_trace()
+        # image_folder_api = get_image_files(path_to_image_from_cli)
+        # ic(image_folder_api)
+
+        # paths = image_folder_api
+        # test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
+        # pred_dicts = pred_and_store(
+        #     test_data_paths, model, auto_transforms, class_names, device
+        # )
+        # pred_df = pd.DataFrame(pred_dicts)
+        # # breakpoint()
+        # # pred_df.head()
+        # console_print_table(pred_df)
         return
 
     ic(
         run_train(
             model,
-            train_dataloader,
-            test_dataloader,
-            loss_fn,
+            trainloader,
+            validloader,
             optimizer,
             args.epochs,
             device,
@@ -1592,53 +1831,55 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
     )
     print("No other options selected so we are training this model....")
 
-    path_to_model = save_model_to_disk("ScreenNetV1", model)
+    path_to_model = save_model_to_disk(f"{MODEL_NAME}", model)
 
     loaded_model_for_inference: nn.Module
     loaded_model_for_inference = run_get_model_for_inference(
-        model, device, class_names, path_to_model, args
+        model, device, path_to_model, args
     )
 
-    ic("lets make a 3 predictions on some random images")
+    ic("lets make 3 predictions on some random images")
     get_random_perdictions_and_plots(
         loaded_model_for_inference,
-        test_dir=test_dir,
-        class_names=class_names,
-        transform=auto_transforms,
+        validset,
         device=device,
-    )
-
-    cmat = compute_confusion_matrix(model, test_dataloader, device)
-    show_confusion_matrix_helper(
-        cmat, class_names, to_disk=True, fname="confusion-matrix.png"
     )
 
 
 def get_random_perdictions_and_plots(
     best_model: nn.Module,
-    test_dir: pathlib.PosixPath = "",
-    class_names: List[str] = None,
-    transform: torchvision.transforms = None,
+    validset: ObjLocDataset,
     device: torch.device = None,
 ):
-    num_images_to_plot = 3
-    test_image_path_list = list(
-        Path(test_dir).glob("*/*.jpg")
-    )  # get all test image paths from 20% dataset
-    test_image_path_sample = random.sample(
-        population=test_image_path_list, k=num_images_to_plot
-    )  # randomly select k number of images
 
-    # Iterate through random test image paths, make predictions on them and plot them
-    for image_path in test_image_path_sample:
-        pred_and_plot_image(
-            model=best_model,
-            image_path=image_path,
-            class_names=class_names,
-            image_size=(224, 224),
-            transform=transform,
-            device=device,
-        )
+    rand_idx = random.randint(0, (len(validset) - 1))
+    ic(rand_idx)
+    # with torch.no_grad():
+    with torch.inference_mode():
+        image, gt_bbox = validset[rand_idx]  # (c, h, w)
+        image = image.unsqueeze(0).to(device)  # (bs, c, h, w)
+        out_bbox = best_model(image)
+
+        compare_plots(image, gt_bbox, out_bbox)
+
+    # num_images_to_plot = 3
+    # test_image_path_list = list(
+    #     Path(test_dir).glob("*/*.jpg")
+    # )  # get all test image paths from 20% dataset
+    # test_image_path_sample = random.sample(
+    #     population=test_image_path_list, k=num_images_to_plot
+    # )  # randomly select k number of images
+
+    # # Iterate through random test image paths, make predictions on them and plot them
+    # for image_path in test_image_path_sample:
+    #     pred_and_plot_image(
+    #         model=best_model,
+    #         image_path=image_path,
+    #         class_names=class_names,
+    #         image_size=(224, 224),
+    #         transform=transform,
+    #         device=device,
+    #     )
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -1884,7 +2125,7 @@ def run_save_model_for_inference(model: torch.nn.Module) -> Tuple[pathlib.PosixP
 def run_get_model_for_inference(
     model: torch.nn.Module,
     device: torch.device,
-    class_names: List[str],
+    # class_names: List[str],
     path_to_model: pathlib.PosixPath,
     args: argparse.Namespace,
 ) -> torch.nn.Module:
@@ -1898,9 +2139,7 @@ def run_get_model_for_inference(
     Returns:
         Tuple[pathlib.PosixPath, torch.nn.Module]: _description_
     """
-    loaded_model_for_inference = load_model_for_inference(
-        path_to_model, device, class_names, args
-    )
+    loaded_model_for_inference = load_model_for_inference(path_to_model, device, args)
     # rich.inspect(loaded_model_for_inference, all=True)
     return loaded_model_for_inference
 
@@ -1931,15 +2170,17 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 
 # NOTE: https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference
 def load_model_for_inference(
-    save_path: str, device: str, class_names: List[str], args: argparse.Namespace
+    save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
-    model = create_effnetb0_model(device, class_names, args)
-    model.load_state_dict(torch.load(save_path))
+    # model = create_effnetb0_model(device, class_names, args)
+    model = ObjLocModel()
+    model.name = "ObjLocModelV1"
+    model.load_state_dict(torch.load(save_path, map_location=device))
     model.eval()
     print("Model loaded from path {} successfully.".format(save_path))
     # Get the model size in bytes then convert to megabytes
     model_size = Path(save_path).stat().st_size // (1024 * 1024)
-    print(f"EfficientNetB2 feature extractor model size: {model_size} MB")
+    print(f"{save_path} | feature extractor model size: {model_size} MB")
 
     # get_model_summary(model)
     return model
@@ -1964,8 +2205,8 @@ def plot_image_with_predicted_label(
     fname: str = "plot.png",
 ):
     # 10. Plot image with predicted label and probability
-    if not to_disk:
-        plt.ion()
+    # if not to_disk:
+    #     plt.ion()
 
     plt.figure()
     plt.imshow(img)
@@ -2051,25 +2292,6 @@ def load_checkpoint(checkpoint, model):
     model.load_state_dict(checkpoint["state_dict"])
 
 
-# #function to save prediction as an image
-# # SOURCE: https://github.com/PineAppleUser/CVprojects/blob/ad49656a0a69354c134554a93d90e07913aa0dab/segmentationLungs/utils.py
-# def save_predictions_as_imgs(
-#     loader, model, folder="saved_images/", device="mps"
-# ):
-#     model.eval()
-#     for idx, (x, y) in enumerate(loader):
-#         x = x.to(device=device)
-#         with torch.no_grad():
-#             preds = torch.sigmoid(model(x))
-#             preds = (preds > 0.5).float()
-#         torchvision.utils.save_image(
-#             preds, f"{folder}/pred_{idx}.png"
-#         )
-#         torchvision.utils.save_image(y.unsqueeze(1), f"{folder}{idx}.png")
-
-#     model.train()
-
-
 def get_model_named_params(model: torch.nn.Module):
     for name, param in model.named_parameters():
         print(name, ":", param.requires_grad)
@@ -2099,15 +2321,15 @@ def print_train_time(start, end, device=None, machine=None):
 def pred_and_store(
     paths: List[pathlib.Path],
     model: torch.nn.Module,
-    transform: torchvision.transforms,
-    class_names: List[str],
+    # transform: torchvision.transforms,
+    # class_names: List[str],
     device: torch.device = "",
 ) -> List[Dict]:
 
     ic(paths)
-    ic(model.name)
-    ic(transform)
-    ic(class_names)
+    # ic(model.name)
+    # ic(transform)
+    # ic(class_names)
     ic(device)
     # 2. Create an empty list to store prediction dictionaires
     pred_list = []
@@ -2120,59 +2342,151 @@ def pred_and_store(
 
         # 5. Get the sample path and ground truth class name
         pred_dict["image_path"] = path
-        class_name = path.parent.stem
-        pred_dict["class_name"] = class_name
 
         # 6. Start the prediction timer
         start_time = timer()
 
+        targetSize = Dimensions.HEIGHT
         # 7. Open image path
-        # img = Image.open(path)
-        img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
 
-        # 8. Transform the image, add batch dimension and put image on target device
-        # transformed_image = transform(img).unsqueeze(dim=0).to(device)
-        transformed_image = transform(img).unsqueeze(dim=0)
+        img: ImageNdarrayBGR
+
+        img_channel: int
+        img_height: int
+        img_width: int
+
+        # import bpdb
+        # bpdb.set_trace()
+
+        img, img_channel, img_height, img_width = read_image_to_bgr(f"{paths[0]}")
+
+        resized = cv2.resize(
+            img, (targetSize, targetSize), interpolation=cv2.INTER_AREA
+        )
+        print(resized.shape)
+
+        # normalize and change output to (c, h, w)
+        resized_tensor: torch.Tensor = (
+            torch.from_numpy(resized).permute(2, 0, 1) / 255.0
+        )
 
         # 9. Prepare model for inference by sending it to target device and turning on eval() mode
         model.to(device)
         model.eval()
 
-        # 10. Get prediction probability, predicition label and prediction class
         with torch.inference_mode():
-            pred_logit = model(
-                transformed_image.to(device)
-            )  # perform inference on target sample
-            pred_prob = torch.softmax(
-                pred_logit, dim=1
-            )  # turn logits into prediction probabilities
-            pred_label = torch.argmax(
-                pred_prob, dim=1
-            )  # turn prediction probabilities into prediction label
-            pred_class = class_names[
-                pred_label.cpu()
-            ]  # hardcode prediction class to be on CPU
+            # Convert to (bs, c, h, w)
+            unsqueezed_tensor = resized_tensor.unsqueeze(0).to(device)
 
-            # 11. Make sure things in the dictionary are on CPU (required for inspecting predictions later on)
-            pred_dict["pred_prob"] = round(pred_prob.unsqueeze(0).max().cpu().item(), 4)
-            pred_dict["pred_class"] = pred_class
+            # predict
+            out_bbox: torch.Tensor = model(unsqueezed_tensor)
 
-            # 12. End the timer and calculate time per pred
-            end_time = timer()
-            pred_dict["time_for_pred"] = round(end_time - start_time, 4)
+            ic(out_bbox)
 
-        # 13. Does the pred match the true label?
-        pred_dict["correct"] = class_name == pred_class
+            xmin, ymin, xmax, ymax = out_bbox[0]
+            pt1 = (int(xmin), int(ymin))
+            pt2 = (int(xmax), int(ymax))
 
-        # 14. Add the dictionary to the list of preds
-        pred_list.append(pred_dict)
+            # import bpdb
+            # bpdb.set_trace()
 
-    # 15. Return list of prediction dictionaries
-    return pred_list
+            starting_point = pt1
+            end_point = pt2
+            color = (255, 0, 0)
+            thickness = 2
+
+            # generate the image with bounding box on it
+            out_img = cv2.rectangle(
+                unsqueezed_tensor.squeeze().permute(1, 2, 0).cpu().numpy(),
+                starting_point,
+                end_point,
+                color,
+                thickness,
+            )
+
+            # TODO: Enable this?
+            # if --display
+            # plt.imshow(out_img)
+
+            # NOTE: At this point we have our bounding box for the smaller image, lets figure out what the values would be for a larger image.
+            # First setup variables we need
+            # -------------------------------------------------------
+            image_tensor_to_resize = resized_tensor
+            resized_bboxes_tensor = out_bbox[0]
+            resized_height = img_height
+            resized_width = img_width
+            resized_dims = (resized_height, resized_width)
+
+            image_tensor_to_resize_channels = image_tensor_to_resize.shape[0]
+            image_tensor_to_resize_height = image_tensor_to_resize.shape[1]
+            image_tensor_to_resize_width = image_tensor_to_resize.shape[2]
+
+            # perform fullsize transformation
+            fullsize_image, fullsize_bboxes = resize_image_and_bbox(
+                image_tensor_to_resize,
+                resized_bboxes_tensor,
+                dims=resized_dims,
+                return_percent_coords=False,
+                device=device,
+            )
+
+            # get fullsize bboxes
+            (
+                xmin_fullsize,
+                ymin_fullsize,
+                xmax_fullsize,
+                ymax_fullsize,
+            ) = fullsize_bboxes[0]
+
+            pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+            pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
+
+            starting_point_fullsize = pt1_fullsize
+            end_point_fullsize = pt2_fullsize
+            color = OPENCV_RED
+            thickness = 1
+
+            # NOTE: commented out for now, move this into a display image function
+            # FIXME
+            # FIXME
+            # FIXME
+            # FIXME
+            # FIXME
+            # out_img = cv2.rectangle(
+            #     img, starting_point, end_point, color, thickness
+            # )
+            # plt.imshow(out_img)
+            # -------------------------------------------------------
+
+            # img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
+
+            # starting_point = pt1
+            # end_point = pt2
+            # color = OPENCV_RED
+            # thickness = 2
+
+            # # bnd_img = cv2.rectangle(img.permute(1, 2, 0).numpy(),pt1, pt2,(255,0,0),2)
+            # bnd_img = cv2.rectangle(
+            #     img_numpy, starting_point, end_point, color, thickness
+            # )
+            # plt.imshow(bnd_img)
+            # # if to_disk:
+            # # # plt.imsave(fname, img_as_array)
+
+            # image_path_api = pathlib.Path(path).resolve()
+            # plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+
+            # plt.savefig(plot_fname)
+
+    print(fullsize_bboxes)
+
+    return fullsize_bboxes
 
 
 if __name__ == "__main__":
     import traceback
+
+    better_exceptions.hook()
 
     try:
         main()
