@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - defaults
   - fastchan
+  - apple
 dependencies:
   - python=3.10
   - pip>=22.2
@@ -41,6 +42,7 @@ dependencies:
   - matplotlib=3.6.2
   - scikit-image
   - scikit-learn
+  - apple::tensorflow-deps
   - pip:
       - tqdm
       - better_exceptions
@@ -80,5 +82,18 @@ dependencies:
       - memray
       - torch-tb-profiler
       # - label-studio
+      # - tensorflow-addons
+      # - tensorflow-data-validation
+      # https://developer.apple.com/metal/tensorflow-plugin/
+      # - tensorflow-datasets
+      # - tensorflow-estimator
+      # - tensorflow-hub
+      # - tensorflow-metadata
+      # - tensorflow-model-analysis
+      # - tensorflow-probability
+      # - tensorflow-serving-api
+      # - tensorflow-transform
+      - tensorflow-macos
+      - tensorflow-metal
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1
