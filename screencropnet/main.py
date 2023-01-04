@@ -315,7 +315,9 @@ def resize_image_and_bbox(
 # --------------------------------------------------------------------------------
 
 
-def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=None, args=None):
+def display_image_grid(
+    images_filepaths: List[str], cols=5, model=None, device=None, args=None
+):
     rows = len(images_filepaths) // cols
     # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
     figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
@@ -338,7 +340,11 @@ def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=N
         thickness = 2
 
         out_img = cv2.rectangle(
-            img_as_array, starting_point_fullsize, end_point_fullsize, (255,0,0), thickness
+            img_as_array,
+            starting_point_fullsize,
+            end_point_fullsize,
+            (255, 0, 0),
+            thickness,
         )
         ax.ravel()[i].imshow(out_img)
         # ax.ravel()[i].set_title(bboxes, color="green")
@@ -348,9 +354,9 @@ def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=N
 
 
 def resize_and_pillarbox(image_pil: Image, width: int, height: int, background="white"):
-    '''
+    """
     Resize PIL image keeping ratio and using white background.
-    '''
+    """
     ratio_w = width / image_pil.width
     ratio_h = height / image_pil.height
     if ratio_w < ratio_h:
@@ -361,16 +367,26 @@ def resize_and_pillarbox(image_pil: Image, width: int, height: int, background="
         # Fixed by height
         resize_width = round(ratio_h * image_pil.width)
         resize_height = height
-    image_resize = image_pil.resize((resize_width, resize_height), Image.Resampling.LANCZOS)
+    image_resize = image_pil.resize(
+        (resize_width, resize_height), Image.Resampling.LANCZOS
+    )
     if background == "white":
-        background = Image.new('RGBA', (width, height), (255, 255, 255, 255))
+        background = Image.new("RGBA", (width, height), (255, 255, 255, 255))
     elif background == "darkmode":
-        background = Image.new('RGBA', (width, height), (22, 32, 42, 1))
+        background = Image.new("RGBA", (width, height), (22, 32, 42, 1))
     offset = (round((width - resize_width) / 2), round((height - resize_height) / 2))
     background.paste(image_resize, offset)
-    return background.convert('RGB')
+    return background.convert("RGB")
 
-def handle_autocrop(images_filepaths: List[str], cols=5, model=None, device=None, args=None, resize=False):
+
+def handle_autocrop(
+    images_filepaths: List[str],
+    cols=5,
+    model=None,
+    device=None,
+    args=None,
+    resize=False,
+):
     # rows = len(images_filepaths) // cols
     # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
     # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
@@ -419,15 +435,15 @@ def handle_autocrop(images_filepaths: List[str], cols=5, model=None, device=None
         cropped_full_path = fix_path(fname)
 
         if resize:
-            to_resize = Image.open(cropped_full_path).convert('RGB')
-            resized_pil_image = resize_and_pillarbox(to_resize, 1080, 1350, background=resize)
+            to_resize = Image.open(cropped_full_path).convert("RGB")
+            resized_pil_image = resize_and_pillarbox(
+                to_resize, 1080, 1350, background=resize
+            )
             resized_pil_image.save(fname)
 
         cropped_image_file_paths.append(cropped_full_path)
 
     return cropped_image_file_paths
-
-
 
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
@@ -1248,6 +1264,7 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
+
 def get_model_summary(
     model: torch.nn.Module,
     input_size: tuple = (32, 3, 224, 224),
@@ -1488,9 +1505,7 @@ parser.add_argument(
 parser.add_argument(
     "--dist-backend", default="nccl", type=str, help="distributed backend"
 )
-parser.add_argument(
-    "--seed", type=int, help="seed for initializing training. "
-)
+parser.add_argument("--seed", type=int, help="seed for initializing training. ")
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
     "--multiprocessing-distributed",
@@ -1882,7 +1897,6 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         # for i, (images, gt_bboxes) in enumerate(stream):
         #     data[i] = (images[i], gt_bboxes[i])
 
-
         display_image_grid(test_images_filepaths, cols=5, model=model, device=device)
 
         return
@@ -1902,7 +1916,9 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             #     args,
             # )
             images_filepaths.append(path_to_image_from_cli)
-            cropped_paths = handle_autocrop(images_filepaths, cols=5, model=model, device=device, resize=args.resize)
+            cropped_paths = handle_autocrop(
+                images_filepaths, cols=5, model=model, device=device, resize=args.resize
+            )
 
         return
 
@@ -1968,7 +1984,6 @@ def get_random_perdictions_and_plots(
         out_bbox = best_model(image)
 
         compare_plots(image, gt_bbox, out_bbox)
-
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
