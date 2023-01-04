@@ -15,7 +15,7 @@ train_one:
 transfer_train: transfer_learning
 
 evaluate:
-	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_TransferLearningpascalVOC_40_epochs.pth
+	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_TransferLearningpascalVOC_100_epochs.pth
 
 test: evaluate
 
