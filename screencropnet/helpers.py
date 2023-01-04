@@ -1,5 +1,9 @@
 import torch
 import time
+import os
+import shutil
+from urllib.request import urlretrieve
+from tqdm import tqdm
 
 # SOURCE: https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py
 
@@ -271,3 +275,30 @@ def mean_average_precision(
         average_precisions.append(torch.trapz(precisions, recalls))
 
     return sum(average_precisions) / len(average_precisions)
+
+
+# Define functions to download an archived dataset and unpack it
+# SOURCE: https://albumentations.ai/docs/examples/pytorch_classification/#Define-a-function-to-visualize-images-and-their-labels
+
+class TqdmUpTo(tqdm):
+    def update_to(self, b=1, bsize=1, tsize=None):
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)
+
+
+def download_url(url, filepath):
+    directory = os.path.dirname(os.path.abspath(filepath))
+    os.makedirs(directory, exist_ok=True)
+    if os.path.exists(filepath):
+        print("Filepath already exists. Skipping download.")
+        return
+
+    with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=os.path.basename(filepath)) as t:
+        urlretrieve(url, filename=filepath, reporthook=t.update_to, data=None)
+        t.total = t.n
+
+
+def extract_archive(filepath):
+    extract_dir = os.path.dirname(os.path.abspath(filepath))
+    shutil.unpack_archive(filepath, extract_dir)
