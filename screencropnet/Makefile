@@ -1,18 +1,18 @@
 CURRENT_DIR := $(shell pwd)
 
 train:
-	python main.py --to-disk --debug --interactive --epochs 40
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 40
 
 transfer_learning:
-	python main.py --to-disk --debug --interactive --epochs 40 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 40 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
 
 train_one:
-	python main.py --debug --epochs 1 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --seed 42 --debug --epochs 1 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
 
 transfer_train: transfer_learning
 
 evaluate:
-	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
+	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_TransferLearningpascalVOC_40_epochs.pth
 
 test: evaluate
 

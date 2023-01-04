@@ -908,7 +908,7 @@ def run_train(
 
     start_time = timer()
 
-    dataloader_name = "pascalVOC"
+    dataloader_name = "TransferLearningpascalVOC"
     ic(dataloader_name)
 
     # Setup training and save the results
@@ -1165,54 +1165,6 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
-
-# boss: use this to instantiate a new model class with all the proper setup as before
-def create_effnetb0_model(
-    device: str, class_names: List[str], args: argparse.Namespace
-) -> torch.nn.Module:
-    """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
-
-    Args:
-        device (str): _description_
-        class_names (List[str]): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    # NEW: Setup the model with pretrained weights and send it to the target device (torchvision v0.13+)
-    weights = models.__dict__[args.model_weights].DEFAULT
-    # weights = (
-    #     torchvision.models.EfficientNet_B0_Weights.DEFAULT
-    # )  # .DEFAULT = best available weights
-    model = torchvision.models.efficientnet_b0(weights=weights).to(device)
-
-    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    for param in model.features.parameters():
-        param.requires_grad = False
-
-    # Set the manual seeds
-    validate_seed(args.seed)
-
-    # Get the length of class_names (one output unit for each class)
-    output_shape = len(class_names)
-
-    # Recreate the classifier layer and seed it to the target device
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=0.2, inplace=True),
-        torch.nn.Linear(
-            in_features=1280,
-            out_features=output_shape,  # same number of output units as our number of classes
-            bias=True,
-        ),
-    ).to(device)
-
-    # 5. Give the model a name
-    model.name = "effnetb0"
-    print(f"[INFO] Created new {model.name} model.")
-
-    return model
-
-
 def get_model_summary(
     model: torch.nn.Module,
     input_size: tuple = (32, 3, 224, 224),
@@ -1440,7 +1392,7 @@ parser.add_argument(
     "--dist-backend", default="nccl", type=str, help="distributed backend"
 )
 parser.add_argument(
-    "--seed", default=42, type=int, help="seed for initializing training. "
+    "--seed", type=int, help="seed for initializing training. "
 )
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
@@ -1810,7 +1762,7 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         print(" Running test command ...")
         images_filepaths = []
 
-        for index, row in validloader.dataset.df.iterrows():
+        for index, row in trainloader.dataset.df.iterrows():
             path = os.path.join(f"{DATA_DIR}/", row["img_path"])
             # print(path)
             images_filepaths.append(path)
@@ -1819,9 +1771,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         test_images_filepaths = []
 
         for i in range(10):
-            some_image = random.choice(images_filepaths)
+            # some_image = random.choice(images_filepaths)
+            idx = random.randint(0, len(images_filepaths))
+            ic(idx)
+            some_image = images_filepaths[idx]
             test_images_filepaths.append(some_image)
-        test_images_filepaths
+        # test_images_filepaths
 
         # data = []
         # gt_bboxes_list = []
@@ -2171,7 +2126,6 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 def load_model_for_inference(
     save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
-    # model = create_effnetb0_model(device, class_names, args)
     model = ObjLocModel()
     model.name = "ObjLocModelV1"
     model.load_state_dict(torch.load(save_path, map_location=device))
@@ -2268,11 +2222,11 @@ def info(args, dataset_root_dir=""):
     platform.platform()
     print(
         watermark(
-            packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
+            packages="torch,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
         )
     )
     devices.mps_check()
-    validate_seed(args.seed)
+    # validate_seed(args.seed)
     walk_through_dir(dataset_root_dir)
     sys.exit(0)
 
