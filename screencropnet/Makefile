@@ -3,6 +3,9 @@ CURRENT_DIR := $(shell pwd)
 train:
 	python main.py --seed 42 --to-disk --debug --interactive --epochs 40
 
+train_100:
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 100
+
 transfer_learning:
 	python main.py --seed 42 --to-disk --debug --interactive --epochs 40 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
 
