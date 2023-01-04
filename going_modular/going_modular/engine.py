@@ -12,6 +12,42 @@ from rich import print
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 import numpy as np
+from torchmetrics import Accuracy
+
+# SOURCE: https://colab.research.google.com/drive/1nCj54XryHcoMARS4cSxivn3Ci1I6OtvO?usp=sharing#scrollTo=i4a9YMBCToGc
+def calculate_IoU(bb1, bb2):
+    # calculate IoU(Intersection over Union) of 2 boxes
+    # **IoU = Area of Overlap / Area of Union
+    # https://github.com/Hulkido/RCNN/blob/master/RCNN.ipynb
+
+    (
+                bb1_xmin,
+                bb1_ymin,
+                bb1_xmax,
+                bb1_ymax,
+    ) = bb1
+
+    (
+                bb2_xmin,
+                bb2_ymin,
+                bb2_xmax,
+                bb2_ymax,
+    ) = bb2
+
+    x_left = max(bb1_xmin, bb2_xmin)
+    y_top = max(bb1_ymin, bb2_ymin)
+    x_right = min(bb1_xmax, bb2_xmax)
+    y_bottom = min(bb1_ymax, bb2_ymax)
+    # if there is no overlap output 0 as intersection area is zero.
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+    # calculate Overlapping area
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    bb1_area = (bb1_xmax - bb1_xmin) * (bb1_ymax - bb1_ymin)
+    bb2_area = (bb2_xmax - bb2_xmin) * (bb2_ymax - bb2_ymin)
+    union_area = bb1_area + bb2_area - intersection_area
+
+    return intersection_area / union_area
 
 
 def display_ascii_text(txt: str, font: str = "stop"):
@@ -300,28 +336,57 @@ def train_localization_fn(
     dataloader: torch.utils.data.DataLoader,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
+    # writer: SummaryWriter = None,  # new parameter to take in a writer
 ):
 
     total_loss = 0.0
 
+    # accuracy_counter = Accuracy()
+
     # Put model in train mode
     model.train()  # Dropout On
 
-    for data in tqdm(dataloader):
 
-        images, gt_bboxes = data
-        images, gt_bboxes = (
-            images.to(device, non_blocking=True),
-            gt_bboxes.to(device, non_blocking=True),
-        )
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            "./runs/profiler", worker_name="cropworker0"
+        ),
+        # save information about operator's input shapes.
+        record_shapes=True,
+        #  track tensor memory allocation/deallocation.
+        profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
+        # record source information (file and line number) for the ops.
+        with_stack=True,
+    ) as prof:
 
-        bboxes, loss = model(images, gt_bboxes)
+        for data in tqdm(dataloader):
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Send data to target device
+            images, gt_bboxes = data
+            images, gt_bboxes = (
+                images.to(device, non_blocking=True),
+                gt_bboxes.to(device, non_blocking=True),
+            )
 
-        total_loss += loss.item()
+            # 1. Forward pass
+            bboxes, loss = model(images, gt_bboxes)
+
+            # 3. Optimizer zero grad
+            optimizer.zero_grad()
+
+            # 4. Loss backward
+            loss.backward()
+
+            # 5. Optimizer step
+            optimizer.step()
+
+            total_loss += loss.item()
+            prof.step()
 
     return total_loss / len(dataloader)
 
@@ -337,6 +402,11 @@ def eval_localization_fn(
     # Put model in eval mode
     model.eval()
 
+    # Lists to store detected and true boxes, labels, scores
+    det_boxes = list()  # detected bounding boxes
+    det_scores = list()  # detected scores
+    true_boxes = list()  # ground_truth bounding boxes
+
     # with torch.no_grad():
     with torch.inference_mode():
         for data in tqdm(dataloader):
@@ -346,10 +416,15 @@ def eval_localization_fn(
                 images.to(device, non_blocking=True),
                 gt_bboxes.to(device, non_blocking=True),
             )
-            # import bpdb
-            # bpdb.set_trace()
 
             bboxes, loss = model(images, gt_bboxes)
+
+            # import bpdb
+
+            # bpdb.set_trace()
+
+            # loss is a predicted score
+            # predicted_scores
 
             total_loss += loss.item()
 
@@ -365,6 +440,7 @@ def train_localization(
     epochs: int,
     device: torch.device,
     # writer: SummaryWriter,
+    writer: SummaryWriter = None,  # new parameter to take in a writer
 ):
 
     best_valid_loss = np.Inf
@@ -376,14 +452,14 @@ def train_localization(
     # Make sure model on target device
     model.to(device)
 
-    for i in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs)):
 
         print(
-            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={i}..."
+            f"[INFO] train_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
         )
         train_loss = train_localization_fn(model, trainloader, optimizer, device)
         print(
-            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={i}..."
+            f"[INFO] test_step for model {model.__class__.__name__} on device '{device}' epoch={epoch}..."
         )
         valid_loss = eval_localization_fn(model, validloader, device)
 
@@ -392,4 +468,27 @@ def train_localization(
             print("WEIGHTS-ARE-SAVED")
             best_valid_loss = valid_loss
 
-        print(f"Epoch : {i + 1} train loss : {train_loss} valid loss : {valid_loss}")
+        print(f"Epoch : {epoch + 1} train loss : {train_loss} valid loss : {valid_loss}")
+
+
+
+        ### New: Use the writer parameter to track experiments ###
+        # See if there's a writer, if so, log to it
+        if writer:
+            # Add results to SummaryWriter
+            writer.add_scalars(
+                main_tag="Loss",
+                tag_scalar_dict={"train_loss": train_loss, "test_loss": valid_loss},
+                global_step=epoch,
+            )
+            # writer.add_scalars(
+            #     main_tag="Accuracy",
+            #     tag_scalar_dict={"train_acc": train_acc, "test_acc": test_acc},
+            #     global_step=epoch,
+            # )
+
+            # Close the writer
+            writer.close()
+        else:
+            pass
+    ### End new ###

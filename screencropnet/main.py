@@ -163,14 +163,14 @@ CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_d
 DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
 
 BATCH_SIZE = 16
-IMG_SIZE = 140
+# IMG_SIZE = 140
 
 
 class Dimensions(IntEnum):
     # HEIGHT = 2532
     # WIDTH = 1170
-    HEIGHT = 140
-    WIDTH = 140
+    HEIGHT = 224
+    WIDTH = 224
 
 
 LR = 0.001
@@ -890,7 +890,7 @@ def run_train(
 
     start_time = timer()
 
-    dataloader_name = "basic"
+    dataloader_name = "pascalVOC"
     ic(dataloader_name)
 
     # Setup training and save the results
@@ -902,11 +902,11 @@ def run_train(
         # loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        # writer=create_writer(
-        #     experiment_name=dataloader_name,
-        #     model_name=model.name,
-        #     extra=f"{epochs}_epochs",
-        # ),
+        writer=create_writer(
+            experiment_name=dataloader_name,
+            model_name=model.name,
+            extra=f"{epochs}_epochs",
+        ),
     )
 
     # End the timer and print out how long it took

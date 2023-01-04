@@ -4,7 +4,10 @@ train:
 	python main.py --to-disk --debug --interactive --epochs 40
 
 transfer_learning:
-	python main.py --to-disk --debug --interactive --epochs 5 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --to-disk --debug --interactive --epochs 40 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+
+train_one:
+	python main.py --debug --epochs 1 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
 
 transfer_train: transfer_learning
 
