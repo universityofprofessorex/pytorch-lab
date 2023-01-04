@@ -1838,12 +1838,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         model, device, path_to_model, args
     )
 
-    ic("lets make 3 predictions on some random images")
-    get_random_perdictions_and_plots(
-        loaded_model_for_inference,
-        validset,
-        device=device,
-    )
+    # ic("lets make 3 predictions on some random images")
+    # get_random_perdictions_and_plots(
+    #     loaded_model_for_inference,
+    #     validset,
+    #     device=device,
+    # )
 
 
 def get_random_perdictions_and_plots(
