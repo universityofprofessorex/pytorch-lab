@@ -4,7 +4,7 @@ train:
 	python main.py --seed 42 --to-disk --debug --interactive --epochs 40
 
 train_100:
-	python main.py --seed 42 --to-disk --debug --interactive --epochs 100
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 378
 
 transfer_learning:
 	python main.py --seed 42 --to-disk --debug --interactive --epochs 40 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
@@ -15,7 +15,7 @@ train_one:
 transfer_train: transfer_learning
 
 evaluate:
-	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_TransferLearningpascalVOC_100_epochs.pth
+	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_378_epochs.pth
 
 test: evaluate
 
@@ -84,4 +84,5 @@ zip-dataset:
 	ls -ltah ~/Downloads/datasets/twitter_screenshots_localization_dataset.zip
 
 get-best-model:
-	curl -L 'https://www.dropbox.com/s/m5mvmlv28x7xdty/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth?dl=1' > collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	mkdir -p models || true
+	curl -L 'https://www.dropbox.com/s/9903r4jy02rmuzh/ScreenCropNetV1_378_epochs.pth?dl=1' > models/ScreenCropNetV1_378_epochs.pth
