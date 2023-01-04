@@ -352,11 +352,25 @@ def display_image_grid(
     plt.tight_layout()
     plt.show()
 
+def get_pixel_rgb(image_pil: Image):
+    r, g, b = image_pil.getpixel((1, 1))
+    ic(r,g,b)
+
+    if (r,g,b) == (255, 255, 255):
+        color = "white"
+    else:
+        color = "darkmode"
+
+    print(f"GOT COLOR {color} -- {r},{g},{b}")
+    return color
+
 
 def resize_and_pillarbox(image_pil: Image, width: int, height: int, background="white"):
     """
     Resize PIL image keeping ratio and using white background.
     """
+    autodetect_background = get_pixel_rgb(image_pil)
+
     ratio_w = width / image_pil.width
     ratio_h = height / image_pil.height
     if ratio_w < ratio_h:
@@ -370,9 +384,9 @@ def resize_and_pillarbox(image_pil: Image, width: int, height: int, background="
     image_resize = image_pil.resize(
         (resize_width, resize_height), Image.Resampling.LANCZOS
     )
-    if background == "white":
+    if background and autodetect_background == "white":
         background = Image.new("RGBA", (width, height), (255, 255, 255, 255))
-    elif background == "darkmode":
+    elif background and autodetect_background == "darkmode":
         background = Image.new("RGBA", (width, height), (22, 32, 42, 1))
     offset = (round((width - resize_width) / 2), round((height - resize_height) / 2))
     background.paste(image_resize, offset)
