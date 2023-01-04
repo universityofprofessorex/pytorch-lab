@@ -387,31 +387,14 @@ def handle_autocrop(
     args=None,
     resize=False,
 ):
-    # rows = len(images_filepaths) // cols
-    # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
-    # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
     cropped_image_file_paths = []
     for i, image_filepath in enumerate(images_filepaths):
         image, bboxes = predict_from_file(image_filepath, model, device, args)
-        # im_bgr = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY )
-
-        # set_trace()
-
         img_as_array = np.asarray(image)
-
         img_as_array = cv2.cvtColor(img_as_array, cv2.COLOR_RGB2BGR)
 
         # get fullsize bboxes
         xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
-
-        pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
-        pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
-
-        starting_point_fullsize = pt1_fullsize
-        end_point_fullsize = pt2_fullsize
-        color = OPENCV_RED
-        thickness = 2
 
         startY = int(ymin_fullsize)
         endY = int(ymax_fullsize)
@@ -1888,58 +1871,24 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             ic(idx)
             some_image = images_filepaths[idx]
             test_images_filepaths.append(some_image)
-        # test_images_filepaths
-
-        # data = []
-        # gt_bboxes_list = []
-        # # import bpdb
-        # stream = tqdm(validloader)
-        # for i, (images, gt_bboxes) in enumerate(stream):
-        #     data[i] = (images[i], gt_bboxes[i])
 
         display_image_grid(test_images_filepaths, cols=5, model=model, device=device)
 
         return
 
     if args.autocrop:
-        #############################################################################################
-        print(" Running predict command ...")
-        # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
         path_to_image_from_cli = fix_path(args.autocrop)
 
         images_filepaths = []
         if is_file(path_to_image_from_cli):
-            # predict_from_file(
-            #     path_to_image_from_cli,
-            #     model,
-            #     device,
-            #     args,
-            # )
+
             images_filepaths.append(path_to_image_from_cli)
+
             cropped_paths = handle_autocrop(
                 images_filepaths, cols=5, model=model, device=device, resize=args.resize
             )
 
         return
-
-    # if args.resize:
-    #     #############################################################################################
-    #     print(" Running resize command ...")
-    #     # 3. Get image class from path name (the image class is the name of the directory where the image is stored)
-    #     path_to_image_from_cli = fix_path(args.autocrop)
-
-    #     images_filepaths = []
-    #     if is_file(path_to_image_from_cli):
-    #         # predict_from_file(
-    #         #     path_to_image_from_cli,
-    #         #     model,
-    #         #     device,
-    #         #     args,
-    #         # )
-    #         images_filepaths.append(path_to_image_from_cli)
-    #         cropped_paths = handle_autocrop(images_filepaths, cols=5, model=model, device=device)
-
-    #     return
 
     ic(
         run_train(
