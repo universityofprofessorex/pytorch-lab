@@ -46,7 +46,6 @@ class ObjLocModel(nn.Module):
 
         return bboxes_logits
 
-
     # def detect_objects(self, predicted_locs, predicted_scores, min_score, max_overlap, top_k, device):
     #     """
     #     Decipher the 8732 locations and class scores (output of ths SSD300) to detect objects.

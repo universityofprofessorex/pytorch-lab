@@ -3,6 +3,7 @@ import time
 
 # SOURCE: https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py
 
+
 def find_intersection(set_1, set_2):
     """
     Find the intersection of every box combination between two sets of boxes that are in boundary coordinates.
@@ -13,8 +14,12 @@ def find_intersection(set_1, set_2):
     """
 
     # PyTorch auto-broadcasts singleton dimensions
-    lower_bounds = torch.max(set_1[:, :2].unsqueeze(1), set_2[:, :2].unsqueeze(0))  # (n1, n2, 2)
-    upper_bounds = torch.min(set_1[:, 2:].unsqueeze(1), set_2[:, 2:].unsqueeze(0))  # (n1, n2, 2)
+    lower_bounds = torch.max(
+        set_1[:, :2].unsqueeze(1), set_2[:, :2].unsqueeze(0)
+    )  # (n1, n2, 2)
+    upper_bounds = torch.min(
+        set_1[:, 2:].unsqueeze(1), set_2[:, 2:].unsqueeze(0)
+    )  # (n1, n2, 2)
     intersection_dims = torch.clamp(upper_bounds - lower_bounds, min=0)  # (n1, n2, 2)
     return intersection_dims[:, :, 0] * intersection_dims[:, :, 1]  # (n1, n2)
 
@@ -37,13 +42,16 @@ def find_jaccard_overlap(set_1, set_2):
 
     # Find the union
     # PyTorch auto-broadcasts singleton dimensions
-    union = areas_set_1.unsqueeze(1) + areas_set_2.unsqueeze(0) - intersection  # (n1, n2)
+    union = (
+        areas_set_1.unsqueeze(1) + areas_set_2.unsqueeze(0) - intersection
+    )  # (n1, n2)
 
     return intersection / union  # (n1, n2)
 
 
 ## ------------------------------------------
 # SOURCE: https://www.kaggle.com/code/dqhdqmcttdqx/yolov3-for-pascal-voc/notebook
+
 
 def iou_width_height(boxes1, boxes2):
     """
@@ -53,12 +61,16 @@ def iou_width_height(boxes1, boxes2):
     Returns:
         tensor: Intersection over union of the corresponding boxes
     """
-    intersection = torch.min(boxes1[..., 0], boxes2[..., 0]) * torch.min(boxes1[..., 1], boxes2[..., 1])
-    union = boxes1[..., 0] * boxes1[..., 1] + boxes2[..., 0] * boxes2[..., 1] - intersection
+    intersection = torch.min(boxes1[..., 0], boxes2[..., 0]) * torch.min(
+        boxes1[..., 1], boxes2[..., 1]
+    )
+    union = (
+        boxes1[..., 0] * boxes1[..., 1] + boxes2[..., 0] * boxes2[..., 1] - intersection
+    )
     return intersection / union
 
 
-def intersection_over_union(boxes_preds, boxes_labels, box_format='corners'):
+def intersection_over_union(boxes_preds, boxes_labels, box_format="corners"):
     """
     This function calculates intersection over union (iou) given pred boxes
     and target boxes.
@@ -102,7 +114,7 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format='corners'):
     return intersection / (box1_area + box2_area - intersection + 1e-6)
 
 
-def non_max_suppression(bboxes, iou_threshold, threshold, box_format='corners'):
+def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
     """
     Does Non Max Suppression given bboxes
     Parameters:
@@ -118,8 +130,8 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format='corners'):
     assert type(bboxes) == list
 
     time_limit = 10.0
-    max_det = 300 # maximum of detection per image
-#     max_nms = 30000 # maximum of boxes into torchvision.ops.nms()
+    max_det = 300  # maximum of detection per image
+    #     max_nms = 30000 # maximum of boxes into torchvision.ops.nms()
 
     t = time.time()
 
@@ -131,14 +143,21 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format='corners'):
         chosen_box = bboxes.pop(0)
 
         bboxes = [
-            box for box in bboxes if int(box[0]) != int(chosen_box[0])
-                or intersection_over_union(torch.tensor(chosen_box[2:]), torch.tensor(box[2:]), box_format=box_format) < iou_threshold
+            box
+            for box in bboxes
+            if int(box[0]) != int(chosen_box[0])
+            or intersection_over_union(
+                torch.tensor(chosen_box[2:]),
+                torch.tensor(box[2:]),
+                box_format=box_format,
+            )
+            < iou_threshold
         ]
 
         bboxes_after_nms.append(chosen_box)
 
         if (time.time() - t) > time_limit:
-            print(f'WARNING: NMS time limit {time_limit}s exceeded')
+            print(f"WARNING: NMS time limit {time_limit}s exceeded")
             print(len(bboxes_after_nms))
             break  # time limit exceeded
 
@@ -148,7 +167,9 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format='corners'):
     return bboxes_after_nms
 
 
-def mean_average_precision(pred_boxes, true_boxes, iou_threshold=.5, box_format='midpoint', num_classes=20):
+def mean_average_precision(
+    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
+):
     """
     This function calculates mean average precision (mAP)
     Parameters:
@@ -217,7 +238,11 @@ def mean_average_precision(pred_boxes, true_boxes, iou_threshold=.5, box_format=
             best_iou = 0
 
             for idx, gt in enumerate(ground_truth_img):
-                iou = intersection_over_union(torch.tensor(detection[3:]), torch.tensor(gt[3:]), box_format=box_format,)
+                iou = intersection_over_union(
+                    torch.tensor(detection[3:]),
+                    torch.tensor(gt[3:]),
+                    box_format=box_format,
+                )
 
                 if iou > best_iou:
                     best_iou = iou

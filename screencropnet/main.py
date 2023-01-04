@@ -315,7 +315,9 @@ def resize_image_and_bbox(
 # --------------------------------------------------------------------------------
 
 
-def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=None, args=None):
+def display_image_grid(
+    images_filepaths: List[str], cols=5, model=None, device=None, args=None
+):
     rows = len(images_filepaths) // cols
     # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
     figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
@@ -338,13 +340,93 @@ def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=N
         thickness = 2
 
         out_img = cv2.rectangle(
-            img_as_array, starting_point_fullsize, end_point_fullsize, (255,0,0), thickness
+            img_as_array,
+            starting_point_fullsize,
+            end_point_fullsize,
+            (255, 0, 0),
+            thickness,
         )
         ax.ravel()[i].imshow(out_img)
         # ax.ravel()[i].set_title(bboxes, color="green")
         ax.ravel()[i].set_axis_off()
     plt.tight_layout()
     plt.show()
+
+
+def resize_and_pillarbox(image_pil: Image, width: int, height: int, background="white"):
+    """
+    Resize PIL image keeping ratio and using white background.
+    """
+    ratio_w = width / image_pil.width
+    ratio_h = height / image_pil.height
+    if ratio_w < ratio_h:
+        # It must be fixed by width
+        resize_width = width
+        resize_height = round(ratio_w * image_pil.height)
+    else:
+        # Fixed by height
+        resize_width = round(ratio_h * image_pil.width)
+        resize_height = height
+    image_resize = image_pil.resize(
+        (resize_width, resize_height), Image.Resampling.LANCZOS
+    )
+    if background == "white":
+        background = Image.new("RGBA", (width, height), (255, 255, 255, 255))
+    elif background == "darkmode":
+        background = Image.new("RGBA", (width, height), (22, 32, 42, 1))
+    offset = (round((width - resize_width) / 2), round((height - resize_height) / 2))
+    background.paste(image_resize, offset)
+    return background.convert("RGB")
+
+
+def handle_autocrop(
+    images_filepaths: List[str],
+    cols=5,
+    model=None,
+    device=None,
+    args=None,
+    resize=False,
+):
+    cropped_image_file_paths = []
+    for i, image_filepath in enumerate(images_filepaths):
+        image, bboxes = predict_from_file(image_filepath, model, device, args)
+        img_as_array = np.asarray(image)
+        img_as_array = cv2.cvtColor(img_as_array, cv2.COLOR_RGB2BGR)
+
+        # get fullsize bboxes
+        xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
+
+        startY = int(ymin_fullsize)
+        endY = int(ymax_fullsize)
+        startX = int(xmin_fullsize)
+        endX = int(xmax_fullsize)
+
+        # roi = image[startY:endY, startX:endX]
+        cropped_image = img_as_array[startY:endY, startX:endX]
+
+        CROPPED_DIR_PATH = Path("autocropped")
+        CROPPED_DIR_PATH.mkdir(
+            parents=True,  # create parent directories if needed
+            exist_ok=True,  # if models directory already exists, don't error
+        )
+
+        image_path_api = pathlib.Path(image_filepath).resolve()
+        fname = f"{CROPPED_DIR_PATH}/cropped-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+
+        cv2.imwrite(fname, cropped_image)
+
+        cropped_full_path = fix_path(fname)
+
+        if resize:
+            to_resize = Image.open(cropped_full_path).convert("RGB")
+            resized_pil_image = resize_and_pillarbox(
+                to_resize, 1080, 1350, background=resize
+            )
+            resized_pil_image.save(fname)
+
+        cropped_image_file_paths.append(cropped_full_path)
+
+    return cropped_image_file_paths
 
 
 # SOURCE: https://colab.research.google.com/drive/1ECFFwiXa_EtNL1VNuB8UHBKyMv4MlamN#scrollTo=W31-rSfG6jUs
@@ -1165,6 +1247,7 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
+
 def get_model_summary(
     model: torch.nn.Module,
     input_size: tuple = (32, 3, 224, 224),
@@ -1294,6 +1377,13 @@ parser.add_argument(
     help="path to image to run prediction on (default: none)",
 )
 parser.add_argument(
+    "--resize",
+    default="",
+    type=str,
+    metavar="RESIZE_PATH",
+    help="path to image to run prediction on (default: none)",
+)
+parser.add_argument(
     "--results",
     default="",
     type=str,
@@ -1339,6 +1429,13 @@ parser.add_argument(
     action="store_true",
     default=True,
     help="use pre-trained model",
+)
+parser.add_argument(
+    "--autocrop",
+    default="",
+    type=str,
+    metavar="AUTOCROP_PATH",
+    help="path to image to run prediction on (default: none)",
 )
 parser.add_argument(
     "--interactive",
@@ -1391,9 +1488,7 @@ parser.add_argument(
 parser.add_argument(
     "--dist-backend", default="nccl", type=str, help="distributed backend"
 )
-parser.add_argument(
-    "--seed", type=int, help="seed for initializing training. "
-)
+parser.add_argument("--seed", type=int, help="seed for initializing training. ")
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
     "--multiprocessing-distributed",
@@ -1776,17 +1871,22 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
             ic(idx)
             some_image = images_filepaths[idx]
             test_images_filepaths.append(some_image)
-        # test_images_filepaths
-
-        # data = []
-        # gt_bboxes_list = []
-        # # import bpdb
-        # stream = tqdm(validloader)
-        # for i, (images, gt_bboxes) in enumerate(stream):
-        #     data[i] = (images[i], gt_bboxes[i])
-
 
         display_image_grid(test_images_filepaths, cols=5, model=model, device=device)
+
+        return
+
+    if args.autocrop:
+        path_to_image_from_cli = fix_path(args.autocrop)
+
+        images_filepaths = []
+        if is_file(path_to_image_from_cli):
+
+            images_filepaths.append(path_to_image_from_cli)
+
+            cropped_paths = handle_autocrop(
+                images_filepaths, cols=5, model=model, device=device, resize=args.resize
+            )
 
         return
 
@@ -1833,7 +1933,6 @@ def get_random_perdictions_and_plots(
         out_bbox = best_model(image)
 
         compare_plots(image, gt_bbox, out_bbox)
-
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
