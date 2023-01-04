@@ -58,7 +58,13 @@ tensorboard:
 	tensorboard --logdir runs/
 
 predict:
-	python main.py --predict "~/Downloads/IMG_6400.PNG" --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth --to-disk
+	python main.py --predict "~/Downloads/IMG_6400.PNG" --weights ./models/ScreenCropNetV1_378_epochs.pth --to-disk
+
+autocrop:
+	python main.py --autocrop "~/Downloads/2021-10-20_12-44-46_000.png" --weights ./models/ScreenCropNetV1_378_epochs.pth --to-disk
+
+autocrop-resize:
+	python main.py --resize "darkmode" --autocrop "~/Downloads/2021-10-20_12-44-46_000.png" --weights ./models/ScreenCropNetV1_378_epochs.pth --to-disk
 
 bad-predict:
 	python main.py --predict ../bad_image_test.jpg --weights ./models/ScreenNet_efficientnet_b0_basic_10_epochs.pth --interactive --to-disk
