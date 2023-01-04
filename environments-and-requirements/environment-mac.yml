@@ -4,14 +4,14 @@ channels:
   - conda-forge
   - defaults
   - fastchan
+  - apple
 dependencies:
   - python=3.10
   - pip>=22.2
-  - pytorch=1.13.1
-  - pytorch-lightning=1.7
-  - torchvision
+  - pytorch
+  # - pytorch-lightning=1.7
   - torchmetrics
-  - torch-fidelity=0.3
+  - torch-fidelity
   - torchtext
   - torchvision
   - fastai=2.7.10
@@ -34,7 +34,7 @@ dependencies:
   - imgaug=0.4
   - numpy=1.23
   - openh264=2.3
-  - pudb=2019.2
+  # - pudb=2019.2
   - py-opencv=4.6
   - scipy=1.9
   - tensorboard=2.11.0
@@ -42,6 +42,7 @@ dependencies:
   - matplotlib=3.6.2
   - scikit-image
   - scikit-learn
+  - apple::tensorflow-deps
   - pip:
       - tqdm
       - better_exceptions
@@ -67,13 +68,13 @@ dependencies:
       - git+https://github.com/openai/CLIP.git@main#egg=clip
       - git+https://github.com/Birch-san/k-diffusion.git@mps#egg=k-diffusion
       - viztracer
-      - pdbr
+      # - pdbr
       - pytype
       - pyannotate
-      - prospector
-      - vulture
+      # - prospector
+      # - vulture
       - mypy
-      - bandit
+      # - bandit
       - py-spy
       - watermark
       - pyfiglet
@@ -81,5 +82,18 @@ dependencies:
       - memray
       - torch-tb-profiler
       # - label-studio
+      # - tensorflow-addons
+      # - tensorflow-data-validation
+      # https://developer.apple.com/metal/tensorflow-plugin/
+      # - tensorflow-datasets
+      # - tensorflow-estimator
+      # - tensorflow-hub
+      # - tensorflow-metadata
+      # - tensorflow-model-analysis
+      # - tensorflow-probability
+      # - tensorflow-serving-api
+      # - tensorflow-transform
+      - tensorflow-macos
+      - tensorflow-metal
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

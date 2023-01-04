@@ -163,14 +163,14 @@ CSV_FILE = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_d
 DATA_DIR = "/Users/malcolm/Downloads/datasets/twitter_screenshots_localization_dataset/"
 
 BATCH_SIZE = 16
-IMG_SIZE = 140
+# IMG_SIZE = 140
 
 
 class Dimensions(IntEnum):
     # HEIGHT = 2532
     # WIDTH = 1170
-    HEIGHT = 140
-    WIDTH = 140
+    HEIGHT = 224
+    WIDTH = 224
 
 
 LR = 0.001
@@ -315,18 +315,33 @@ def resize_image_and_bbox(
 # --------------------------------------------------------------------------------
 
 
-def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
+def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=None, args=None):
     rows = len(images_filepaths) // cols
-    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
     for i, image_filepath in enumerate(images_filepaths):
-        image = cv2.imread(image_filepath)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # true_label = os.path.normpath(image_filepath).split(os.sep)[-2]
-        # predicted_label = predicted_labels[i] if predicted_labels else true_label
-        # color = "green" if true_label == predicted_label else "red"
-        color = "green"
-        ax.ravel()[i].imshow(image)
-        ax.ravel()[i].set_title(image_filepath, color=color)
+        image, bboxes = predict_from_file(image_filepath, model, device, args)
+
+        # set_trace()
+
+        img_as_array = np.asarray(image)
+
+        # get fullsize bboxes
+        xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
+
+        pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+        pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
+
+        starting_point_fullsize = pt1_fullsize
+        end_point_fullsize = pt2_fullsize
+        color = OPENCV_RED
+        thickness = 2
+
+        out_img = cv2.rectangle(
+            img_as_array, starting_point_fullsize, end_point_fullsize, (255,0,0), thickness
+        )
+        ax.ravel()[i].imshow(out_img)
+        # ax.ravel()[i].set_title(bboxes, color="green")
         ax.ravel()[i].set_axis_off()
     plt.tight_layout()
     plt.show()
@@ -504,19 +519,22 @@ def predict_from_file(
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
     # img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
 
-    bboxes = pred_and_store(paths, model, device)
+    bboxes = pred_and_store(paths, model, device=device)
 
-    plot_fname = (
-        f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-    )
+    # if args.to_disk:
+    #     plot_fname = (
+    #         f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    #     )
 
-    from_pil_image_to_plt_display(
-        img,
-        bboxes,
-        to_disk=args.to_disk,
-        interactive=args.interactive,
-        fname=plot_fname,
-    )
+    #     from_pil_image_to_plt_display(
+    #         img,
+    #         bboxes,
+    #         to_disk=args.to_disk,
+    #         interactive=args.interactive,
+    #         fname=plot_fname,
+    #     )
+
+    return img, bboxes
 
 
 # ------------------------------------------------------------
@@ -890,7 +908,7 @@ def run_train(
 
     start_time = timer()
 
-    dataloader_name = "basic"
+    dataloader_name = "TransferLearningpascalVOC"
     ic(dataloader_name)
 
     # Setup training and save the results
@@ -902,11 +920,11 @@ def run_train(
         # loss_fn=loss_fn,
         epochs=epochs,
         device=device,
-        # writer=create_writer(
-        #     experiment_name=dataloader_name,
-        #     model_name=model.name,
-        #     extra=f"{epochs}_epochs",
-        # ),
+        writer=create_writer(
+            experiment_name=dataloader_name,
+            model_name=model.name,
+            extra=f"{epochs}_epochs",
+        ),
     )
 
     # End the timer and print out how long it took
@@ -1147,54 +1165,6 @@ def setup_workspace(data_path: pathlib.PosixPath, image_path: pathlib.PosixPath)
             print("Unzipping twitter, facebook, tiktok data...")
             zip_ref.extractall(image_path)
 
-
-# boss: use this to instantiate a new model class with all the proper setup as before
-def create_effnetb0_model(
-    device: str, class_names: List[str], args: argparse.Namespace
-) -> torch.nn.Module:
-    """Create an instance of pretrained model EfficientNet_B0, freeze all base layers and define classifier. Return model class
-
-    Args:
-        device (str): _description_
-        class_names (List[str]): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    # NEW: Setup the model with pretrained weights and send it to the target device (torchvision v0.13+)
-    weights = models.__dict__[args.model_weights].DEFAULT
-    # weights = (
-    #     torchvision.models.EfficientNet_B0_Weights.DEFAULT
-    # )  # .DEFAULT = best available weights
-    model = torchvision.models.efficientnet_b0(weights=weights).to(device)
-
-    # Freeze all base layers in the "features" section of the model (the feature extractor) by setting requires_grad=False
-    for param in model.features.parameters():
-        param.requires_grad = False
-
-    # Set the manual seeds
-    validate_seed(args.seed)
-
-    # Get the length of class_names (one output unit for each class)
-    output_shape = len(class_names)
-
-    # Recreate the classifier layer and seed it to the target device
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout(p=0.2, inplace=True),
-        torch.nn.Linear(
-            in_features=1280,
-            out_features=output_shape,  # same number of output units as our number of classes
-            bias=True,
-        ),
-    ).to(device)
-
-    # 5. Give the model a name
-    model.name = "effnetb0"
-    print(f"[INFO] Created new {model.name} model.")
-
-    return model
-
-
 def get_model_summary(
     model: torch.nn.Module,
     input_size: tuple = (32, 3, 224, 224),
@@ -1422,7 +1392,7 @@ parser.add_argument(
     "--dist-backend", default="nccl", type=str, help="distributed backend"
 )
 parser.add_argument(
-    "--seed", default=42, type=int, help="seed for initializing training. "
+    "--seed", type=int, help="seed for initializing training. "
 )
 parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 parser.add_argument(
@@ -1790,32 +1760,34 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.test:
         print(" Running test command ...")
-        data = []
-        gt_bboxes_list = []
-        # import bpdb
-        stream = tqdm(validloader)
-        for i, (images, gt_bboxes) in enumerate(stream):
-            data[i] = (images[i], gt_bboxes[i])
-        # for data in tqdm(validloader):
-        #     images, gt_bboxes = data
+        images_filepaths = []
 
-        # print(images, gt_bboxes)
-        # images.shape
+        for index, row in trainloader.dataset.df.iterrows():
+            path = os.path.join(f"{DATA_DIR}/", row["img_path"])
+            # print(path)
+            images_filepaths.append(path)
 
-        print(len(data))
-        # bpdb.set_trace()
-        # image_folder_api = get_image_files(path_to_image_from_cli)
-        # ic(image_folder_api)
+        # get random set of images
+        test_images_filepaths = []
 
-        # paths = image_folder_api
-        # test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-        # pred_dicts = pred_and_store(
-        #     test_data_paths, model, auto_transforms, class_names, device
-        # )
-        # pred_df = pd.DataFrame(pred_dicts)
-        # # breakpoint()
-        # # pred_df.head()
-        # console_print_table(pred_df)
+        for i in range(10):
+            # some_image = random.choice(images_filepaths)
+            idx = random.randint(0, len(images_filepaths))
+            ic(idx)
+            some_image = images_filepaths[idx]
+            test_images_filepaths.append(some_image)
+        # test_images_filepaths
+
+        # data = []
+        # gt_bboxes_list = []
+        # # import bpdb
+        # stream = tqdm(validloader)
+        # for i, (images, gt_bboxes) in enumerate(stream):
+        #     data[i] = (images[i], gt_bboxes[i])
+
+
+        display_image_grid(test_images_filepaths, cols=5, model=model, device=device)
+
         return
 
     ic(
@@ -1838,12 +1810,12 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
         model, device, path_to_model, args
     )
 
-    ic("lets make 3 predictions on some random images")
-    get_random_perdictions_and_plots(
-        loaded_model_for_inference,
-        validset,
-        device=device,
-    )
+    # ic("lets make 3 predictions on some random images")
+    # get_random_perdictions_and_plots(
+    #     loaded_model_for_inference,
+    #     validset,
+    #     device=device,
+    # )
 
 
 def get_random_perdictions_and_plots(
@@ -1862,24 +1834,6 @@ def get_random_perdictions_and_plots(
 
         compare_plots(image, gt_bbox, out_bbox)
 
-    # num_images_to_plot = 3
-    # test_image_path_list = list(
-    #     Path(test_dir).glob("*/*.jpg")
-    # )  # get all test image paths from 20% dataset
-    # test_image_path_sample = random.sample(
-    #     population=test_image_path_list, k=num_images_to_plot
-    # )  # randomly select k number of images
-
-    # # Iterate through random test image paths, make predictions on them and plot them
-    # for image_path in test_image_path_sample:
-    #     pred_and_plot_image(
-    #         model=best_model,
-    #         image_path=image_path,
-    #         class_names=class_names,
-    #         image_size=(224, 224),
-    #         transform=transform,
-    #         device=device,
-    #     )
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -2172,7 +2126,6 @@ def save_model_to_disk(my_model_name: str, model: torch.nn.Module):
 def load_model_for_inference(
     save_path: str, device: str, args: argparse.Namespace
 ) -> nn.Module:
-    # model = create_effnetb0_model(device, class_names, args)
     model = ObjLocModel()
     model.name = "ObjLocModelV1"
     model.load_state_dict(torch.load(save_path, map_location=device))
@@ -2269,11 +2222,11 @@ def info(args, dataset_root_dir=""):
     platform.platform()
     print(
         watermark(
-            packages="torch,pytorch_lightning,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
+            packages="torch,torchmetrics,torchvision,matplotlib,rich,PIL,numpy,mlxtend"
         )
     )
     devices.mps_check()
-    validate_seed(args.seed)
+    # validate_seed(args.seed)
     walk_through_dir(dataset_root_dir)
     sys.exit(0)
 

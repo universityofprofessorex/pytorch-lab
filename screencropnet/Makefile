@@ -1,15 +1,23 @@
 CURRENT_DIR := $(shell pwd)
 
 train:
-	python main.py --to-disk --debug --interactive --epochs 40
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 40
+
+train_100:
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 378
 
 transfer_learning:
-	python main.py --to-disk --debug --interactive --epochs 5 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --seed 42 --to-disk --debug --interactive --epochs 40 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
+
+train_one:
+	python main.py --seed 42 --debug --epochs 1 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
 
 transfer_train: transfer_learning
 
 evaluate:
-	python main.py --to-disk --debug --test --epochs 5 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_378_epochs.pth
+
+test: evaluate
 
 pylint:
 	pylint --enable F,E --output-format=colorized --disable=all --rcfile ../lint-configs-python/python/pylintrc main.py
@@ -76,4 +84,5 @@ zip-dataset:
 	ls -ltah ~/Downloads/datasets/twitter_screenshots_localization_dataset.zip
 
 get-best-model:
-	curl -L 'https://www.dropbox.com/s/m5mvmlv28x7xdty/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth?dl=1' > collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	mkdir -p models || true
+	curl -L 'https://www.dropbox.com/s/9903r4jy02rmuzh/ScreenCropNetV1_378_epochs.pth?dl=1' > models/ScreenCropNetV1_378_epochs.pth
