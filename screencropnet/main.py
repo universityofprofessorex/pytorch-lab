@@ -315,18 +315,33 @@ def resize_image_and_bbox(
 # --------------------------------------------------------------------------------
 
 
-def display_image_grid(images_filepaths, predicted_labels=(), cols=5):
+def display_image_grid(images_filepaths: List[str], cols=5, model=None, device=None, args=None):
     rows = len(images_filepaths) // cols
-    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    # figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(12, 6))
+    figure, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(30, 10))
     for i, image_filepath in enumerate(images_filepaths):
-        image = cv2.imread(image_filepath)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # true_label = os.path.normpath(image_filepath).split(os.sep)[-2]
-        # predicted_label = predicted_labels[i] if predicted_labels else true_label
-        # color = "green" if true_label == predicted_label else "red"
-        color = "green"
-        ax.ravel()[i].imshow(image)
-        ax.ravel()[i].set_title(image_filepath, color=color)
+        image, bboxes = predict_from_file(image_filepath, model, device, args)
+
+        # set_trace()
+
+        img_as_array = np.asarray(image)
+
+        # get fullsize bboxes
+        xmin_fullsize, ymin_fullsize, xmax_fullsize, ymax_fullsize = bboxes[0]
+
+        pt1_fullsize = (int(xmin_fullsize), int(ymin_fullsize))
+        pt2_fullsize = (int(xmax_fullsize), int(ymax_fullsize))
+
+        starting_point_fullsize = pt1_fullsize
+        end_point_fullsize = pt2_fullsize
+        color = OPENCV_RED
+        thickness = 2
+
+        out_img = cv2.rectangle(
+            img_as_array, starting_point_fullsize, end_point_fullsize, (255,0,0), thickness
+        )
+        ax.ravel()[i].imshow(out_img)
+        # ax.ravel()[i].set_title(bboxes, color="green")
         ax.ravel()[i].set_axis_off()
     plt.tight_layout()
     plt.show()
@@ -504,19 +519,22 @@ def predict_from_file(
     img = convert_pil_image_to_rgb_channels(f"{paths[0]}")
     # img: ImageNdarrayBGR = read_image_to_bgr(f"{paths[0]}")
 
-    bboxes = pred_and_store(paths, model, device)
+    bboxes = pred_and_store(paths, model, device=device)
 
-    plot_fname = (
-        f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-    )
+    # if args.to_disk:
+    #     plot_fname = (
+    #         f"results/prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
+    #     )
 
-    from_pil_image_to_plt_display(
-        img,
-        bboxes,
-        to_disk=args.to_disk,
-        interactive=args.interactive,
-        fname=plot_fname,
-    )
+    #     from_pil_image_to_plt_display(
+    #         img,
+    #         bboxes,
+    #         to_disk=args.to_disk,
+    #         interactive=args.interactive,
+    #         fname=plot_fname,
+    #     )
+
+    return img, bboxes
 
 
 # ------------------------------------------------------------
@@ -1790,32 +1808,31 @@ def main_worker(gpu: int, ngpus_per_node: int, args: argparse.Namespace):
 
     if args.test:
         print(" Running test command ...")
-        data = []
-        gt_bboxes_list = []
-        # import bpdb
-        stream = tqdm(validloader)
-        for i, (images, gt_bboxes) in enumerate(stream):
-            data[i] = (images[i], gt_bboxes[i])
-        # for data in tqdm(validloader):
-        #     images, gt_bboxes = data
+        images_filepaths = []
 
-        # print(images, gt_bboxes)
-        # images.shape
+        for index, row in validloader.dataset.df.iterrows():
+            path = os.path.join(f"{DATA_DIR}/", row["img_path"])
+            # print(path)
+            images_filepaths.append(path)
 
-        print(len(data))
-        # bpdb.set_trace()
-        # image_folder_api = get_image_files(path_to_image_from_cli)
-        # ic(image_folder_api)
+        # get random set of images
+        test_images_filepaths = []
 
-        # paths = image_folder_api
-        # test_data_paths = list(Path(test_dir).glob("*/*.jpg"))
-        # pred_dicts = pred_and_store(
-        #     test_data_paths, model, auto_transforms, class_names, device
-        # )
-        # pred_df = pd.DataFrame(pred_dicts)
-        # # breakpoint()
-        # # pred_df.head()
-        # console_print_table(pred_df)
+        for i in range(10):
+            some_image = random.choice(images_filepaths)
+            test_images_filepaths.append(some_image)
+        test_images_filepaths
+
+        # data = []
+        # gt_bboxes_list = []
+        # # import bpdb
+        # stream = tqdm(validloader)
+        # for i, (images, gt_bboxes) in enumerate(stream):
+        #     data[i] = (images[i], gt_bboxes[i])
+
+
+        display_image_grid(test_images_filepaths, cols=5, model=model, device=device)
+
         return
 
     ic(
@@ -1862,24 +1879,6 @@ def get_random_perdictions_and_plots(
 
         compare_plots(image, gt_bbox, out_bbox)
 
-    # num_images_to_plot = 3
-    # test_image_path_list = list(
-    #     Path(test_dir).glob("*/*.jpg")
-    # )  # get all test image paths from 20% dataset
-    # test_image_path_sample = random.sample(
-    #     population=test_image_path_list, k=num_images_to_plot
-    # )  # randomly select k number of images
-
-    # # Iterate through random test image paths, make predictions on them and plot them
-    # for image_path in test_image_path_sample:
-    #     pred_and_plot_image(
-    #         model=best_model,
-    #         image_path=image_path,
-    #         class_names=class_names,
-    #         image_size=(224, 224),
-    #         transform=transform,
-    #         device=device,
-    #     )
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):

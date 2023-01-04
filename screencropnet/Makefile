@@ -12,7 +12,9 @@ train_one:
 transfer_train: transfer_learning
 
 evaluate:
-	python main.py --to-disk --debug --test --epochs 5 --weights ./models/collab_ScreenCropNetV1_ObjLocModelV1_basic_40_epochs.pth
+	python main.py --to-disk --debug --test --epochs 5 --weights ./models/ScreenCropNetV1_ObjLocModelV1_pascalVOC_40_epochs.pth
+
+test: evaluate
 
 pylint:
 	pylint --enable F,E --output-format=colorized --disable=all --rcfile ../lint-configs-python/python/pylintrc main.py
