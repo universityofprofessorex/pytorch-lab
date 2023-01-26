@@ -315,7 +315,14 @@ def get_pip_packages(run_lambda):
         return "\n".join(
             line
             for line in out.splitlines()
-            if any(name in line for name in {"torch", "numpy", "mypy",})
+            if any(
+                name in line
+                for name in {
+                    "torch",
+                    "numpy",
+                    "mypy",
+                }
+            )
         )
 
     pip_version = "pip3" if sys.version[0] == "3" else "pip"
