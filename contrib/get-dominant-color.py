@@ -58,6 +58,28 @@ import pandas as pd
 
 utc = pytz.utc
 
+from scipy.spatial import KDTree
+from webcolors import (
+    CSS3_HEX_TO_NAMES,
+    hex_to_rgb,
+)
+
+# SOURCE: https://medium.com/codex/rgb-to-color-names-in-python-the-robust-way-ec4a9d97a01f
+def convert_rgb_to_names(rgb_tuple):
+
+    # a dictionary of all the hex and their respective names in css3
+    css3_db = CSS3_HEX_TO_NAMES
+    names = []
+    rgb_values = []
+    for color_hex, color_name in css3_db.items():
+        names.append(color_name)
+        rgb_values.append(hex_to_rgb(color_hex))
+
+    kdt_db = KDTree(rgb_values)
+    distance, index = kdt_db.query(rgb_tuple)
+    rich.print(f'closest match: {names[index]}')
+    return f'{names[index]}'
+
 parser = argparse.ArgumentParser(description="extract dominant color")
 parser.add_argument("-u", "--urls", metavar="URL", nargs="*", help="urls to download. ")
 
@@ -100,11 +122,16 @@ if __name__ == "__main__":
         r, g, b = corner_pixels["top_left"]
         background_color = rgb2hex(r, g, b)
         ic(background_color)
+        color_name = convert_rgb_to_names((r, g, b))
     else:
         r, g, b = corner_pixels["top_right"]
         background_color = rgb2hex(r, g, b)
-        ic(background_color)
 
+        ic(background_color)
+        color_name = convert_rgb_to_names((r, g, b))
+
+
+    ic(color_name)
 
     duration = time.time() - start_time
     print(f"Calculated 1 image in {duration} seconds")
