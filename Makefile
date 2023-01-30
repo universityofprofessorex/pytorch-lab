@@ -6,7 +6,13 @@ link-conda-env-intel:
 
 conda-update:
 	conda env update
-	pip freeze > installed.txt
+	conda list --explicit > installed_conda.txt
+	pip freeze > installed_pip.txt
+
+conda-update-prune:
+	conda env update --prune
+	conda list --explicit > installed_conda.txt
+	pip freeze > installed_pip.txt
 
 conda-activate:
 	pyenv activate anaconda3-2022.05
