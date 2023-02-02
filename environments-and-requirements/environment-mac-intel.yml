@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - defaults
   - fastchan
+  # - apple
 dependencies:
   - python=3.10
   - pip>=22.2
@@ -43,6 +44,7 @@ dependencies:
   - scikit-image
   - scikit-learn
   # - tensorflow=2.10
+  # - apple::tensorflow-deps
   - pip:
       - tqdm
       - better_exceptions
@@ -83,5 +85,8 @@ dependencies:
       - torch-tb-profiler
       # - label-studio==1.6.0
       # - semver==3.0.0-dev.4
+      # - tensorflow-macos
+      # - tensorflow-metal
+      - webcolors
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1

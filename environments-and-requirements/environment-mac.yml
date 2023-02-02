@@ -95,5 +95,6 @@ dependencies:
       # - tensorflow-transform
       - tensorflow-macos
       - tensorflow-metal
+      - webcolors
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: 1
