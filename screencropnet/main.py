@@ -2512,38 +2512,6 @@ def pred_and_store(
             color = OPENCV_RED
             thickness = 1
 
-            # NOTE: commented out for now, move this into a display image function
-            # FIXME
-            # FIXME
-            # FIXME
-            # FIXME
-            # FIXME
-            # out_img = cv2.rectangle(
-            #     img, starting_point, end_point, color, thickness
-            # )
-            # plt.imshow(out_img)
-            # -------------------------------------------------------
-
-            # img_numpy = image.squeeze().permute(1, 2, 0).cpu().numpy()
-
-            # starting_point = pt1
-            # end_point = pt2
-            # color = OPENCV_RED
-            # thickness = 2
-
-            # # bnd_img = cv2.rectangle(img.permute(1, 2, 0).numpy(),pt1, pt2,(255,0,0),2)
-            # bnd_img = cv2.rectangle(
-            #     img_numpy, starting_point, end_point, color, thickness
-            # )
-            # plt.imshow(bnd_img)
-            # # if to_disk:
-            # # # plt.imsave(fname, img_as_array)
-
-            # image_path_api = pathlib.Path(path).resolve()
-            # plot_fname = f"prediction-{model.name}-{image_path_api.stem}{image_path_api.suffix}"
-
-            # plt.savefig(plot_fname)
-
     print(fullsize_bboxes)
 
     return fullsize_bboxes
